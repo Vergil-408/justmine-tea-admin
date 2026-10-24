@@ -32,7 +32,13 @@ export function resolveOptions(item, groups = []) {
   if (!item || item.customizable === false) return []
 
   let ids = Array.isArray(item.optionGroupIds) ? item.optionGroupIds : null
-  if (!ids) ids = item.category === 'customizable' ? LEGACY_GROUP_IDS : []
+  if (!ids) {
+    if (item.category === 'classic' || item.category === 'coffee') {
+      ids = ['gula', 'es', 'catatan']
+    } else {
+      ids = ['gula', 'es', 'topping', 'catatan']
+    }
+  }
 
   const byId = new Map(groups.map((g) => [g.id, g]))
   const overrides = item.optionOverrides ?? {}
