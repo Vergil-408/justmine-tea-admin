@@ -3,6 +3,7 @@ import { listenToAllOrders, updateOrderStatus, deleteOrder, markOrderPaid } from
 import TopNav from '../components/TopNav.jsx'
 import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import { useOrderAlerts, loadSoundPref, saveSoundPref } from '../hooks/useOrderAlerts.js'
+import { playChime } from '../utils/chime.js'
 import { formatItemOptions } from '../utils/options.js'
 
 const TABS = [
@@ -67,6 +68,13 @@ export default function Orders() {
     const next = !soundOn
     setSoundOn(next)
     saveSoundPref(next)
+    if (next) {
+      try { playChime(2) } catch {}
+    }
+  }
+
+  function testSound() {
+    try { playChime(2) } catch {}
   }
 
   const counts = useMemo(() => {
@@ -157,6 +165,16 @@ export default function Orders() {
               <span className="material-symbols-outlined text-[16px]">{soundOn ? 'volume_up' : 'volume_off'}</span>
               Bunyi {soundOn ? 'aktif' : 'mati'}
             </button>
+            {soundOn && (
+              <button
+                onClick={testSound}
+                title="Putar preview suara Cha-Ching"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-full border border-border text-ink-muted hover:bg-sage-light hover:text-sage-dark transition-colors"
+              >
+                <span className="material-symbols-outlined text-[15px]">play_circle</span>
+                Tes Suara
+              </button>
+            )}
             {permission === 'default' && (
               <button
                 onClick={askPermission}

@@ -27,3 +27,4 @@ dist-ssr
 .vercel
 *-firebase-adminsdk-*.json
 serviceAccount*.json
+/*.mp3

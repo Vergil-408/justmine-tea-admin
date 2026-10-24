@@ -26,6 +26,9 @@ export default function TopNav() {
           <NavLink to="/orders" className={linkClass}>
             Pesanan
           </NavLink>
+          <NavLink to="/pos" className={linkClass}>
+            Kasir (POS)
+          </NavLink>
           {isOwner && (
             <>
               <NavLink to="/menu" className={linkClass}>
