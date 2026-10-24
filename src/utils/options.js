@@ -165,9 +165,18 @@ export function formatOptions(selectedOptions = []) {
   return selectedOptions.map((o) => o.summary ?? o.choiceLabel).join(' · ')
 }
 
-// Identitas baris keranjang: itemId + pilihan terurut.
+// Identitas baris keranjang: itemId + pilihan terurut (atau kombinasi slot untuk paket bundling).
 // Sengaja memakai string kunci langsung (bukan hash) supaya tidak mungkin bertabrakan.
-export function lineKey(itemId, selectedOptions = []) {
+export function lineKey(itemId, selectedOptions = [], bundleSlots = null) {
+  if (bundleSlots && Array.isArray(bundleSlots)) {
+    const slotKey = bundleSlots
+      .map(
+        (s) =>
+          `${s.slotId}:${s.menuId}:${s.sugar || ''}:${s.ice || ''}:${s.topping || ''}:${s.note || ''}`
+      )
+      .join('|')
+    return `${itemId}__bundle__${slotKey}`
+  }
   const parts = selectedOptions
     .map((o) => `${o.groupId}:${o.choiceId}${o.choiceId === 'note' ? `=${o.choiceLabel}` : ''}`)
     .sort()
@@ -175,9 +184,17 @@ export function lineKey(itemId, selectedOptions = []) {
 }
 
 // Teks opsi untuk satu item keranjang/order di semua layar.
-// Order BARU memakai snapshot `selectedOptions`; order LAMA (sebelum kustomisasi dinamis)
-// masih punya `detail` { base, sweetness, ice, milk, toppings[] } dan tetap terbaca.
+// Order BARU memakai snapshot `selectedOptions` atau `bundleSlots`; order LAMA masih punya `detail`.
 export function formatItemOptions(item) {
+  if (item?.isBundle && Array.isArray(item.bundleSlots)) {
+    return item.bundleSlots
+      .map((s, idx) => {
+        const title = s.drinkName || `Cup ${idx + 1}`
+        const opts = [s.sugarLabel, s.iceLabel, s.toppingLabel, s.note ? `"${s.note}"` : null].filter(Boolean)
+        return opts.length > 0 ? `${title} (${opts.join(', ')})` : title
+      })
+      .join(' • ')
+  }
   if (Array.isArray(item?.selectedOptions) && item.selectedOptions.length > 0) {
     return formatOptions(item.selectedOptions)
   }
@@ -189,3 +206,4 @@ export function formatItemOptions(item) {
   }
   return ''
 }
+

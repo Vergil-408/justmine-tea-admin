@@ -276,7 +276,32 @@ export default function Orders() {
                         </span>
                         <span className="text-ink-muted">{rupiah(it.price * it.qty)}</span>
                       </div>
-                      {opts && <p className="text-xs text-ink-muted mt-0.5 pl-5">{opts}</p>}
+                      {it.isBundle && Array.isArray(it.bundleSlots) ? (
+                        <div className="mt-1.5 pl-4 space-y-1">
+                          {it.bundleSlots.map((slot, sIdx) => (
+                            <div key={sIdx} className="text-xs bg-sage-light/50 rounded-lg p-2 border border-sage-dark/20 text-slate-800">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-sage-dark">
+                                  {slot.slotTitle || `Cup ${sIdx + 1}`}: {slot.drinkName}
+                                </span>
+                                {slot.topping && (
+                                  <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-sage-dark/20 font-semibold">
+                                    + {slot.toppingLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-600 flex flex-wrap gap-1.5 mt-0.5 font-medium">
+                                <span>{slot.sugarLabel}</span>
+                                <span>•</span>
+                                <span>{slot.iceLabel}</span>
+                                {slot.note && <span className="text-amber-700 italic">• "{slot.note}"</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        opts && <p className="text-xs text-ink-muted mt-0.5 pl-5">{opts}</p>
+                      )}
                     </div>
                   )
                 })}
