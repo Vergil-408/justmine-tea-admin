@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   listenToMenuItemsAdmin,
@@ -46,6 +46,17 @@ export default function MenuAdmin() {
     })
     return unsub
   }, [])
+
+  // Ekstrak kategori unik yang sudah ada di database
+  const existingCategories = useMemo(() => {
+    const set = new Set()
+    items.forEach((item) => {
+      if (item.category && item.category.trim()) {
+        set.add(item.category.trim())
+      }
+    })
+    return Array.from(set)
+  }, [items])
 
   function resetForm() {
     setForm(emptyForm)
@@ -231,21 +242,36 @@ export default function MenuAdmin() {
               Foto otomatis dipotong rasio 4:3 dan dikecilkan supaya muat di database.
             </p>
 
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Kategori (label &amp; filter)</label>
-            <div className="flex gap-2 mb-3">
-              {['signature', 'customizable'].map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setForm({ ...form, category: c })}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    form.category === c ? 'bg-sage text-white border-sage' : 'border-border text-ink-muted'
-                  }`}
-                >
-                  {c === 'signature' ? 'Signature' : 'Customizable'}
-                </button>
-              ))}
-            </div>
+            <label className="block text-xs font-semibold text-ink-muted mb-1">
+              Kategori Menu (label &amp; filter web)
+            </label>
+            <input
+              type="text"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="w-full mb-1.5 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              placeholder="Ketik kategori baru (contoh: signature, classic, fruit, snack)..."
+              required
+            />
+            {existingCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                <span className="text-[11px] text-ink-muted">Pilih cepat:</span>
+                {existingCategories.map((c) => (
+                  <button
+                    type="button"
+                    key={c}
+                    onClick={() => setForm({ ...form, category: c })}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all ${
+                      form.category?.toLowerCase() === c.toLowerCase()
+                        ? 'bg-sage text-white border-sage'
+                        : 'bg-surface border-border text-ink-muted hover:border-sage hover:text-ink'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <label className="block text-xs font-semibold text-ink-muted mb-1">Harga dasar (Rp)</label>
             <input
