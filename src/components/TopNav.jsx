@@ -118,9 +118,11 @@ export default function TopNav() {
 
   const brandHeader = (
     <div className="p-4 flex items-center gap-3 border-b border-border bg-surface">
-      <div className="w-10 h-10 rounded-xl bg-sage flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
-        차
-      </div>
+      <img
+        src="/icon.png"
+        alt="Justmine Tea"
+        className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-xs border border-border bg-white"
+      />
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-bold text-sm text-ink tracking-tight truncate block">

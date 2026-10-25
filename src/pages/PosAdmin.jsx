@@ -1062,7 +1062,8 @@ export default function PosAdmin() {
       {completedOrder && (
         <div className="hidden print:block font-mono text-[11px] leading-tight text-black max-w-[280px] mx-auto p-2 bg-white">
           <div className="text-center mb-2">
-            <h1 className="text-sm font-bold tracking-wider">JUSTMINE TEA 🍵</h1>
+            <img src="/icon.png" alt="Justmine Tea" className="w-12 h-12 mx-auto object-contain mb-1 rounded-full border border-neutral-300" />
+            <h1 className="text-sm font-bold tracking-wider">JUSTMINE TEA</h1>
             <p className="text-[10px]">Fresh Tea &amp; Modern Brews</p>
             <p className="text-[9px]">Pamulang, Tangerang Selatan</p>
             <p className="border-b border-dashed border-black my-1" />
