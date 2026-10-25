@@ -1069,7 +1069,7 @@ export default function PosAdmin() {
           </div>
 
           <div className="flex justify-between text-[10px]">
-            <span>No: #{completedOrder.orderCode}</span>
+            <span>ID Pesanan: #{completedOrder.orderCode}</span>
             <span>{new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <div className="text-[10px] mb-1">
