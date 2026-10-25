@@ -85,11 +85,33 @@ export default function Orders() {
     return c
   }, [orders])
 
+  const parseOrderTime = (o) => {
+    if (o.createdAt?.toDate) return o.createdAt.toDate().getTime()
+    if (o.createdAt instanceof Date) return o.createdAt.getTime()
+    if (typeof o.createdAt === 'number') return o.createdAt
+    return o.submittedAt ? new Date(o.submittedAt).getTime() : 0
+  }
+
+  const isQueueTab = activeTab === 'aktif' || activeTab === 'menunggu' || activeTab === 'diproses'
+
   const filtered = useMemo(() => {
-    if (activeTab === 'semua') return orders
-    if (activeTab === 'aktif') return orders.filter((o) => o.status === 'menunggu' || o.status === 'diproses')
-    return orders.filter((o) => o.status === activeTab)
-  }, [orders, activeTab])
+    let list = []
+    if (activeTab === 'semua') list = orders
+    else if (activeTab === 'aktif') list = orders.filter((o) => o.status === 'menunggu' || o.status === 'diproses')
+    else list = orders.filter((o) => o.status === activeTab)
+
+    // Untuk tab antrian aktif (aktif, menunggu, diproses): Urutkan KRONOLOGIS (FIFO: pesanan lebih lama/masuk duluan di urutan pertama)
+    if (isQueueTab) {
+      return [...list].sort((a, b) => {
+        const tA = parseOrderTime(a) || Date.now()
+        const tB = parseOrderTime(b) || Date.now()
+        if (tA !== tB) return tA - tB
+        return (a.orderCode || '').localeCompare(b.orderCode || '')
+      })
+    }
+
+    return list
+  }, [orders, activeTab, isQueueTab])
 
   async function advance(order) {
     const next = { menunggu: 'diproses', diproses: 'siap', siap: 'selesai' }[order.status]
@@ -229,14 +251,27 @@ export default function Orders() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((order) => (
+          {filtered.map((order, idx) => (
             <div key={order.id} className="bg-surface border border-border rounded-2xl p-4 flex flex-col gap-3">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-bold text-sm">#{order.orderCode}</p>
-                  <p className="text-[11px] text-ink-muted">{formatTime(order.createdAt)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-sm">#{order.orderCode}</p>
+                    {isQueueTab && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-light text-sage-dark border border-sage/20">
+                        Antrean #{idx + 1}
+                      </span>
+                    )}
+                  </div>
+                  {(order.customerName || order.userName) && (
+                    <p className="text-xs font-bold text-ink mt-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px] text-sage">person</span>
+                      <span>{order.customerName || order.userName}</span>
+                    </p>
+                  )}
+                  <p className="text-[11px] text-ink-muted mt-0.5">{formatTime(order.createdAt)}</p>
                 </div>
-                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-600'}`}>
+                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-600'}`}>
                   {STATUS_LABEL[order.status] || order.status}
                 </span>
               </div>
