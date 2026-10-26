@@ -9,7 +9,7 @@ import {
 } from '../api/menu.js'
 import { seedMenuItems } from '../data/seedMenu.js'
 import { seedOptionGroups } from '../data/seedOptionGroups.js'
-import { getBasePrice } from '../utils/options.js'
+import { getBasePrice, isFoodCategory } from '../utils/options.js'
 import { compressImage, formatKB } from '../utils/image.js'
 import { menuGroupIds } from '../utils/optionAdmin.js'
 import TopNav from '../components/TopNav.jsx'
@@ -17,7 +17,8 @@ import TopNav from '../components/TopNav.jsx'
 const emptyForm = {
   name: '',
   desc: '',
-  category: 'signature',
+  itemType: 'drink', // 'drink' | 'food'
+  category: 'Signature Tea',
   price: '',
   tag: '',
   inStock: true,
@@ -27,6 +28,25 @@ const emptyForm = {
 function rupiah(n) {
   return `Rp${Number(n || 0).toLocaleString('id-ID')}`
 }
+
+const DEFAULT_DRINK_CATEGORIES = [
+  'Signature Tea',
+  'Tropical',
+  'Classic Tea',
+  'Fruit Tea',
+  'Milk Tea',
+  'Coffee Series',
+  'Paket Promo',
+]
+
+const DEFAULT_FOOD_CATEGORIES = [
+  'Main Course',
+  'Snacks',
+  'Dessert',
+  'Pastry & Bakery',
+  'Paket Promo',
+  'Combo',
+]
 
 export default function MenuAdmin() {
   const [items, setItems] = useState([])
@@ -38,6 +58,7 @@ export default function MenuAdmin() {
   const [imageChanged, setImageChanged] = useState(false)
   const [imageInfo, setImageInfo] = useState('')
   const [imageBusy, setImageBusy] = useState(false)
+  const [filterType, setFilterType] = useState('all') // 'all' | 'drink' | 'food'
 
   useEffect(() => {
     const unsub = listenToMenuItemsAdmin((data) => {
@@ -47,16 +68,26 @@ export default function MenuAdmin() {
     return unsub
   }, [])
 
-  // Ekstrak kategori unik yang sudah ada di database
-  const existingCategories = useMemo(() => {
-    const set = new Set()
-    items.forEach((item) => {
-      if (item.category && item.category.trim()) {
-        set.add(item.category.trim())
-      }
-    })
-    return Array.from(set)
-  }, [items])
+  // Pisahkan hitungan drink vs food
+  const drinkCount = useMemo(() => items.filter((i) => !isFoodCategory(i)).length, [items])
+  const foodCount = useMemo(() => items.filter((i) => isFoodCategory(i)).length, [items])
+
+  // Filter daftar menu berdasarkan filterType
+  const displayedItems = useMemo(() => {
+    if (filterType === 'drink') return items.filter((i) => !isFoodCategory(i))
+    if (filterType === 'food') return items.filter((i) => isFoodCategory(i))
+    return items
+  }, [items, filterType])
+
+  // Saran kategori dinamis sesuai jenis menu (drink vs food) yang dipilih
+  const suggestedCategories = useMemo(() => {
+    const defaults = form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES
+    const existing = items
+      .filter((i) => (form.itemType === 'food' ? isFoodCategory(i) : !isFoodCategory(i)))
+      .map((i) => (i.category || '').trim())
+      .filter(Boolean)
+    return Array.from(new Set([...defaults, ...existing]))
+  }, [form.itemType, items])
 
   function resetForm() {
     setForm(emptyForm)
@@ -90,10 +121,12 @@ export default function MenuAdmin() {
 
   function startEdit(item) {
     setEditingId(item.id)
+    const resolvedType = item.itemType || (isFoodCategory(item) ? 'food' : 'drink')
     setForm({
       name: item.name || '',
       desc: item.desc || '',
-      category: item.category || 'signature',
+      itemType: resolvedType,
+      category: item.category || (resolvedType === 'food' ? 'Snacks' : 'Signature Tea'),
       price: getBasePrice(item),
       tag: item.tag || '',
       inStock: item.inStock !== false,
@@ -111,12 +144,12 @@ export default function MenuAdmin() {
       return
     }
     setSaving(true)
-    // Hanya field yang ada di form. Field opsi (customizable, optionGroupIds, optionOverrides)
-    // dan imageUrl TIDAK disentuh saat edit; opsi diatur di halaman Kustom Menu.
+    // Field itemType dan category disimpan ke Firestore agar admin memiliki kendali penuh
     const base = {
       name: form.name.trim(),
       desc: form.desc.trim(),
-      category: form.category, // sekarang hanya label/filter, bukan penentu alur
+      itemType: form.itemType, // 'drink' | 'food'
+      category: form.category.trim(), // Nama kategori bebas (Paket, Promo, Signature, dll.)
       inStock: form.inStock,
       tag: form.tag.trim() || null,
       price: Number(form.price),
@@ -242,21 +275,74 @@ export default function MenuAdmin() {
               Foto otomatis dipotong rasio 4:3 dan dikecilkan supaya muat di database.
             </p>
 
+            {/* Pilihan Jenis Menu (Drink vs Food) */}
+            <label className="block text-xs font-semibold text-ink-muted mb-1.5">
+              Jenis Menu
+            </label>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    itemType: 'drink',
+                    category:
+                      f.itemType === 'food' &&
+                      ['snacks', 'main course', 'food', 'dessert'].includes(f.category.toLowerCase())
+                        ? 'Signature Tea'
+                        : f.category,
+                  }))
+                }}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  form.itemType === 'drink'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-background border-border text-ink-muted hover:border-emerald-600 hover:text-ink'
+                }`}
+              >
+                <span>🍵</span>
+                <span>Minuman (Drink)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    itemType: 'food',
+                    category:
+                      f.itemType === 'drink' &&
+                      ['signature', 'signature tea', 'classic', 'classic tea', 'tropical', 'drinks'].includes(
+                        f.category.toLowerCase()
+                      )
+                        ? 'Snacks'
+                        : f.category,
+                  }))
+                }}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  form.itemType === 'food'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-background border-border text-ink-muted hover:border-amber-600 hover:text-ink'
+                }`}
+              >
+                <span>🍛</span>
+                <span>Makanan (Food)</span>
+              </button>
+            </div>
+
             <label className="block text-xs font-semibold text-ink-muted mb-1">
-              Kategori Menu (label &amp; filter web)
+              Kategori / Sub-kategori Menu
             </label>
             <input
               type="text"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
               className="w-full mb-1.5 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              placeholder="Ketik kategori baru (contoh: signature, classic, fruit, snack)..."
+              placeholder="Contoh: Signature Tea, Tropical, Snacks, Main Course, Promo, Paket..."
               required
             />
-            {existingCategories.length > 0 && (
+            {suggestedCategories.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mb-3">
                 <span className="text-[11px] text-ink-muted">Pilih cepat:</span>
-                {existingCategories.map((c) => (
+                {suggestedCategories.map((c) => (
                   <button
                     type="button"
                     key={c}
@@ -324,9 +410,57 @@ export default function MenuAdmin() {
 
           {/* Daftar menu */}
           <div className="flex flex-col gap-3">
+            {/* Filter Menu List: Semua, Drinks, Food */}
+            <div className="flex items-center justify-between gap-2 flex-wrap bg-surface border border-border rounded-xl p-2.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFilterType('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                    filterType === 'all'
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-surface text-ink-muted border-border hover:border-ink'
+                  }`}
+                >
+                  Semua ({items.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType('drink')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                    filterType === 'drink'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-surface text-ink-muted border-border hover:border-emerald-600'
+                  }`}
+                >
+                  🍵 Drinks ({drinkCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType('food')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                    filterType === 'food'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                      : 'bg-surface text-ink-muted border-border hover:border-amber-600'
+                  }`}
+                >
+                  🍛 Food ({foodCount})
+                </button>
+              </div>
+              <span className="text-xs text-ink-muted">
+                {displayedItems.length} menu ditampilkan
+              </span>
+            </div>
+
             {loading && <p className="text-ink-muted text-sm">Memuat menu...</p>}
-            {items.map((item) => {
+            {!loading && displayedItems.length === 0 && (
+              <p className="text-ink-muted text-xs p-4 bg-surface rounded-xl border border-dashed border-border text-center">
+                Tidak ada menu untuk filter ini.
+              </p>
+            )}
+            {displayedItems.map((item) => {
               const groupCount = menuGroupIds(item).length
+              const isFood = isFoodCategory(item)
               return (
                 <div
                   key={item.id}
@@ -340,6 +474,15 @@ export default function MenuAdmin() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-sm">{item.name}</p>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isFood
+                            ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                            : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                        }`}
+                      >
+                        {isFood ? '🍛 Food' : '🍵 Drink'}
+                      </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-light text-sage-dark uppercase">
                         {item.category}
                       </span>

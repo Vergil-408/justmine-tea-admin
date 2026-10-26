@@ -26,9 +26,14 @@ function pickDefault(group, override, choices) {
 }
 
 // Deteksi apakah kategori merupakan makanan / snack / dessert / main course
-export function isFoodCategory(catRaw) {
-  if (!catRaw) return false
-  const cat = String(catRaw).toLowerCase().trim()
+export function isFoodCategory(catOrItem) {
+  if (!catOrItem) return false
+  if (typeof catOrItem === 'object') {
+    if (catOrItem.itemType === 'food') return true
+    if (catOrItem.itemType === 'drink') return false
+    return isFoodCategory(catOrItem.category)
+  }
+  const cat = String(catOrItem).toLowerCase().trim()
   const foodKeywords = [
     'food', 'makan', 'snack', 'sweet', 'pastry', 'bakery', 'dessert',
     'main', 'course', 'bites', 'meal', 'dish', 'cake', 'toast', 'roti',
@@ -52,7 +57,7 @@ export function isSignatureCategory(catRaw) {
 export function resolveOptions(item, groups = []) {
   if (!item || item.customizable === false) return []
 
-  const isFood = isFoodCategory(item.category)
+  const isFood = isFoodCategory(item)
   const isSignature = isSignatureCategory(item.category)
 
   let ids = Array.isArray(item.optionGroupIds) && item.optionGroupIds.length > 0 ? item.optionGroupIds : null
@@ -610,7 +615,7 @@ export function getItemCustomizationDetails(item) {
   }
 
   // 6. Default standard badges untuk menu minuman jika belum memiliki kustomisasi khusus di database
-  const isFood = isFoodCategory(item?.category)
+  const isFood = isFoodCategory(item)
 
   if (badges.length === 0 && !item?.isBundle && !isFood) {
     badges.push({
