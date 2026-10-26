@@ -31,14 +31,28 @@ function pickDefault(group, override, choices) {
 export function resolveOptions(item, groups = []) {
   if (!item || item.customizable === false) return []
 
-  let ids = Array.isArray(item.optionGroupIds) ? item.optionGroupIds : null
+  const cat = String(item.category || '').toLowerCase()
+  const isFood = ['sweets', 'sweet', 'makanan', 'snack', 'food', 'pastry', 'bakery', 'dessert'].includes(cat)
+  const isSignature = ['signature', 'classic', 'original', 'coffee'].includes(cat)
+
+  let ids = Array.isArray(item.optionGroupIds) && item.optionGroupIds.length > 0 ? item.optionGroupIds : null
   if (!ids) {
-    if (item.category === 'classic' || item.category === 'coffee') {
+    if (isFood) {
+      ids = ['catatan']
+    } else if (isSignature) {
       ids = ['gula', 'es', 'catatan']
     } else {
       ids = ['gula', 'es', 'topping', 'catatan']
     }
+  } else {
+    // Pastikan aturan kategori selalu dipatuhi
+    if (isFood) {
+      ids = ids.filter((id) => id === 'catatan')
+    } else if (isSignature) {
+      ids = ids.filter((id) => id !== 'topping' && id !== 'topping_tea')
+    }
   }
+
 
   const byId = new Map(groups.map((g) => [g.id, g]))
   const overrides = item.optionOverrides ?? {}
@@ -575,7 +589,10 @@ export function getItemCustomizationDetails(item) {
   }
 
   // 6. Default standard badges untuk menu minuman jika belum memiliki kustomisasi khusus di database
-  if (badges.length === 0 && !item?.isBundle) {
+  const cat = String(item?.category || '').toLowerCase()
+  const isFood = ['sweets', 'sweet', 'makanan', 'snack', 'food', 'pastry', 'bakery', 'dessert'].includes(cat)
+
+  if (badges.length === 0 && !item?.isBundle && !isFood) {
     badges.push({
       type: 'ice',
       label: 'Normal Ice',
@@ -594,5 +611,6 @@ export function getItemCustomizationDetails(item) {
 
   return badges
 }
+
 
 
