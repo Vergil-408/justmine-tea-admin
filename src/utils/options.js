@@ -574,6 +574,25 @@ export function getItemCustomizationDetails(item) {
     })
   }
 
+  // 6. Default standard badges untuk menu minuman jika belum memiliki kustomisasi khusus di database
+  if (badges.length === 0 && !item?.isBundle) {
+    badges.push({
+      type: 'ice',
+      label: 'Normal Ice',
+      icon: 'ac_unit',
+      bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+      iconColor: 'text-sky-600',
+    })
+    badges.push({
+      type: 'sugar',
+      label: 'Normal (100%)',
+      icon: 'water_drop',
+      bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+      iconColor: 'text-amber-600',
+    })
+  }
+
   return badges
 }
+
 
