@@ -4,7 +4,7 @@ import TopNav from '../components/TopNav.jsx'
 import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import { useOrderAlerts, loadSoundPref, saveSoundPref } from '../hooks/useOrderAlerts.js'
 import { playChime } from '../utils/chime.js'
-import { formatItemOptions } from '../utils/options.js'
+import { formatItemOptions, getItemCustomizationDetails } from '../utils/options.js'
 
 const TABS = [
   { key: 'aktif', label: 'Aktif' },
@@ -300,47 +300,80 @@ export default function Orders() {
                 )}
               </div>
 
-              <div className="border-t border-border pt-2 flex flex-col gap-1">
+              <div className="border-t border-border pt-2 flex flex-col gap-2">
                 {(order.items || []).map((it, idx) => {
-                  const opts = formatItemOptions(it)
+                  const badges = getItemCustomizationDetails(it)
                   return (
                     <div key={idx} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-semibold">
+                      <div className="flex justify-between items-baseline">
+                        <span className="font-semibold text-ink">
                           {it.qty}× {it.name}
                         </span>
-                        <span className="text-ink-muted">{rupiah(it.price * it.qty)}</span>
+                        <span className="text-ink-muted text-xs font-medium">{rupiah(it.price * it.qty)}</span>
                       </div>
+
                       {it.isBundle && Array.isArray(it.bundleSlots) ? (
-                        <div className="mt-1.5 pl-4 space-y-1">
+                        <div className="mt-1.5 pl-3 space-y-1.5">
                           {it.bundleSlots.map((slot, sIdx) => (
-                            <div key={sIdx} className="text-xs bg-sage-light/50 rounded-lg p-2 border border-sage-dark/20 text-slate-800">
+                            <div key={sIdx} className="text-xs bg-sage-light/40 rounded-lg p-2 border border-sage/20 text-slate-800">
                               <div className="flex items-center justify-between">
-                                <span className="font-bold text-sage-dark">
+                                <span className="font-bold text-sage-dark text-[11px]">
                                   {slot.slotTitle || `Cup ${sIdx + 1}`}: {slot.drinkName}
                                 </span>
                                 {slot.topping && (
-                                  <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-sage-dark/20 font-semibold">
-                                    + {slot.toppingLabel}
+                                  <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-800 font-semibold flex items-center gap-0.5">
+                                    <span className="material-symbols-outlined text-[11px] leading-none text-emerald-600">add_circle</span>
+                                    {slot.toppingLabel}
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[11px] text-slate-600 flex flex-wrap gap-1.5 mt-0.5 font-medium">
-                                <span>{slot.sugarLabel}</span>
-                                <span>•</span>
-                                <span>{slot.iceLabel}</span>
-                                {slot.note && <span className="text-amber-700 italic">• "{slot.note}"</span>}
+                              <div className="text-[11px] text-slate-600 flex flex-wrap gap-1.5 mt-1 font-medium items-center">
+                                {slot.iceLabel && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200/80 text-[10px]">
+                                    <span className="material-symbols-outlined text-[11px] leading-none text-sky-600">ac_unit</span>
+                                    {slot.iceLabel}
+                                  </span>
+                                )}
+                                {slot.sugarLabel && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px]">
+                                    <span className="material-symbols-outlined text-[11px] leading-none text-amber-600">water_drop</span>
+                                    {slot.sugarLabel}
+                                  </span>
+                                )}
+                                {slot.note && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 italic text-[10px]">
+                                    <span className="material-symbols-outlined text-[11px] leading-none text-amber-700">edit_note</span>
+                                    "{slot.note}"
+                                  </span>
+                                )}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        opts && <p className="text-xs text-ink-muted mt-0.5 pl-5">{opts}</p>
+                        badges.length > 0 && (
+                          <div className="mt-1 pl-3 flex flex-wrap gap-1.5 items-center">
+                            {badges.map((b, bIdx) => (
+                              <span
+                                key={bIdx}
+                                className={`inline-flex items-center gap-1 text-[11px] leading-tight px-2 py-0.5 rounded-md border ${b.bgClass}`}
+                              >
+                                {b.icon && (
+                                  <span className={`material-symbols-outlined text-[13px] leading-none shrink-0 ${b.iconColor}`}>
+                                    {b.icon}
+                                  </span>
+                                )}
+                                <span>{b.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )
                       )}
                     </div>
                   )
                 })}
               </div>
+
 
               <div className="border-t border-border pt-2 flex justify-between font-bold text-sm">
                 <span>Total</span>

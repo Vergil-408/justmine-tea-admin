@@ -207,3 +207,373 @@ export function formatItemOptions(item) {
   return ''
 }
 
+// Mengekstrak rincian kustomisasi item (kadar es, tingkat manis, topping/add-on, catatan)
+// menjadi daftar badge rapi dengan icon & styling yang mudah dibaca barista/kasir.
+export function getItemCustomizationDetails(item) {
+  if (!item) return []
+
+  const badges = []
+  const formatRp = (n) => `Rp${Number(n || 0).toLocaleString('id-ID')}`
+
+  // 1. Snapshot selectedOptions (Struktur standar modern)
+  if (Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
+    for (const opt of item.selectedOptions) {
+      if (!opt) continue
+      const gid = (opt.groupId || '').toLowerCase()
+      const glabel = (opt.groupLabel || '').toLowerCase()
+      const cid = (opt.choiceId || '').toLowerCase()
+      const clabel = opt.choiceLabel || opt.summary || ''
+      const rawText = (opt.summary || clabel || '').trim()
+      if (!rawText) continue
+
+      if (
+        gid === 'es' ||
+        gid.includes('ice') ||
+        glabel.includes('es') ||
+        glabel.includes('ice') ||
+        cid.includes('ice')
+      ) {
+        badges.push({
+          type: 'ice',
+          label: clabel || rawText,
+          icon: 'ac_unit',
+          bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+          iconColor: 'text-sky-600',
+        })
+      } else if (
+        gid === 'gula' ||
+        gid.includes('sugar') ||
+        glabel.includes('gula') ||
+        glabel.includes('manis') ||
+        glabel.includes('sugar') ||
+        cid.includes('sugar')
+      ) {
+        badges.push({
+          type: 'sugar',
+          label: clabel || rawText,
+          icon: 'water_drop',
+          bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+          iconColor: 'text-amber-600',
+        })
+      } else if (
+        gid === 'topping' ||
+        gid.includes('addon') ||
+        glabel.includes('topping') ||
+        glabel.includes('add-on') ||
+        glabel.includes('tambahan')
+      ) {
+        const delta = opt.priceDelta ? ` (+${formatRp(opt.priceDelta)})` : ''
+        badges.push({
+          type: 'topping',
+          label: `${clabel}${delta}`,
+          icon: 'add_circle',
+          bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+          iconColor: 'text-emerald-600',
+        })
+      } else if (
+        gid === 'catatan' ||
+        cid === 'note' ||
+        glabel.includes('catatan') ||
+        glabel.includes('note')
+      ) {
+        badges.push({
+          type: 'note',
+          label: clabel || rawText,
+          icon: 'edit_note',
+          bgClass: 'bg-amber-50 text-amber-900 border-amber-300 italic font-medium',
+          iconColor: 'text-amber-700',
+        })
+      } else if (
+        gid === 'susu' ||
+        glabel.includes('susu') ||
+        glabel.includes('milk')
+      ) {
+        badges.push({
+          type: 'milk',
+          label: clabel || rawText,
+          icon: 'local_cafe',
+          bgClass: 'bg-indigo-50 text-indigo-800 border-indigo-200/80',
+          iconColor: 'text-indigo-600',
+        })
+      } else {
+        badges.push({
+          type: 'other',
+          label: rawText,
+          icon: 'tune',
+          bgClass: 'bg-surface-muted text-ink-muted border-border',
+          iconColor: 'text-ink-muted',
+        })
+      }
+    }
+    return badges
+  }
+
+  // 2. Format legacy/objek "detail"
+  const d = item.detail
+  if (d && typeof d === 'object') {
+    if (d.ice) {
+      badges.push({
+        type: 'ice',
+        label: d.ice,
+        icon: 'ac_unit',
+        bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+        iconColor: 'text-sky-600',
+      })
+    }
+    if (d.sweetness) {
+      badges.push({
+        type: 'sugar',
+        label: d.sweetness,
+        icon: 'water_drop',
+        bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+        iconColor: 'text-amber-600',
+      })
+    }
+    if (d.milk) {
+      badges.push({
+        type: 'milk',
+        label: d.milk,
+        icon: 'local_cafe',
+        bgClass: 'bg-indigo-50 text-indigo-800 border-indigo-200/80',
+        iconColor: 'text-indigo-600',
+      })
+    }
+    if (Array.isArray(d.toppings)) {
+      d.toppings.forEach((top) => {
+        if (top) {
+          badges.push({
+            type: 'topping',
+            label: top,
+            icon: 'add_circle',
+            bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+            iconColor: 'text-emerald-600',
+          })
+        }
+      })
+    } else if (typeof d.toppings === 'string' && d.toppings.trim()) {
+      badges.push({
+        type: 'topping',
+        label: d.toppings.trim(),
+        icon: 'add_circle',
+        bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+        iconColor: 'text-emerald-600',
+      })
+    }
+    if (d.note) {
+      badges.push({
+        type: 'note',
+        label: d.note,
+        icon: 'edit_note',
+        bgClass: 'bg-amber-50 text-amber-900 border-amber-300 italic font-medium',
+        iconColor: 'text-amber-700',
+      })
+    }
+    if (badges.length > 0) return badges
+  }
+
+  // 3. Properti langsung pada item (iceLevel, sugarLevel, toppings, note)
+  const ice = item.iceLevel || item.ice
+  if (ice && typeof ice === 'string' && ice.trim()) {
+    badges.push({
+      type: 'ice',
+      label: ice.trim(),
+      icon: 'ac_unit',
+      bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+      iconColor: 'text-sky-600',
+    })
+  }
+
+  const sugar = item.sugarLevel || item.sweetness || item.sugar
+  if (sugar && typeof sugar === 'string' && sugar.trim()) {
+    badges.push({
+      type: 'sugar',
+      label: sugar.trim(),
+      icon: 'water_drop',
+      bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+      iconColor: 'text-amber-600',
+    })
+  }
+
+  const toppings = item.toppings || item.addons || item.topping
+  if (Array.isArray(toppings)) {
+    toppings.forEach((t) => {
+      const name = typeof t === 'object' ? (t.label || t.name) : t
+      if (name && typeof name === 'string' && name.trim()) {
+        badges.push({
+          type: 'topping',
+          label: name.trim(),
+          icon: 'add_circle',
+          bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+          iconColor: 'text-emerald-600',
+        })
+      }
+    })
+  } else if (typeof toppings === 'string' && toppings.trim()) {
+    toppings.split(',').forEach((t) => {
+      const trimmed = t.trim()
+      if (trimmed) {
+        badges.push({
+          type: 'topping',
+          label: trimmed,
+          icon: 'add_circle',
+          bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+          iconColor: 'text-emerald-600',
+        })
+      }
+    })
+  }
+
+  const note = item.note || item.notes || item.catatan
+  if (note && typeof note === 'string' && note.trim()) {
+    badges.push({
+      type: 'note',
+      label: note.trim(),
+      icon: 'edit_note',
+      bgClass: 'bg-amber-50 text-amber-900 border-amber-300 italic font-medium',
+      iconColor: 'text-amber-700',
+    })
+  }
+
+  if (badges.length > 0) return badges
+
+  // 4. Array customizations atau options generik
+  const customList = Array.isArray(item.customizations)
+    ? item.customizations
+    : Array.isArray(item.options)
+    ? item.options
+    : null
+
+  if (customList && customList.length > 0) {
+    customList.forEach((c) => {
+      const text = typeof c === 'object' ? (c.label || c.name || c.value || '') : String(c)
+      const trimmed = text.trim()
+      if (!trimmed) return
+      const lower = trimmed.toLowerCase()
+      if (lower.includes('es') || lower.includes('ice')) {
+        badges.push({
+          type: 'ice',
+          label: trimmed,
+          icon: 'ac_unit',
+          bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+          iconColor: 'text-sky-600',
+        })
+      } else if (
+        lower.includes('gula') ||
+        lower.includes('manis') ||
+        lower.includes('sugar') ||
+        lower.includes('%')
+      ) {
+        badges.push({
+          type: 'sugar',
+          label: trimmed,
+          icon: 'water_drop',
+          bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+          iconColor: 'text-amber-600',
+        })
+      } else if (
+        lower.includes('topping') ||
+        lower.includes('boba') ||
+        lower.includes('pearl') ||
+        lower.includes('jelly') ||
+        lower.includes('nata') ||
+        lower.includes('aloe') ||
+        lower.includes('pudding')
+      ) {
+        badges.push({
+          type: 'topping',
+          label: trimmed,
+          icon: 'add_circle',
+          bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+          iconColor: 'text-emerald-600',
+        })
+      } else if (lower.includes('catatan') || lower.includes('note')) {
+        badges.push({
+          type: 'note',
+          label: trimmed,
+          icon: 'edit_note',
+          bgClass: 'bg-amber-50 text-amber-900 border-amber-300 italic font-medium',
+          iconColor: 'text-amber-700',
+        })
+      } else {
+        badges.push({
+          type: 'other',
+          label: trimmed,
+          icon: 'tune',
+          bgClass: 'bg-surface-muted text-ink-muted border-border',
+          iconColor: 'text-ink-muted',
+        })
+      }
+    })
+    if (badges.length > 0) return badges
+  }
+
+  // 5. Fallback dari pemecahan formatItemOptions string (mis. "Es Sedikit · Gula 50% · Boba")
+  const fallbackStr = formatItemOptions(item)
+  if (fallbackStr && typeof fallbackStr === 'string') {
+    const parts = fallbackStr
+      .split(/[·•]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    parts.forEach((p) => {
+      const lower = p.toLowerCase()
+      if (lower.includes('es') || lower.includes('ice')) {
+        badges.push({
+          type: 'ice',
+          label: p,
+          icon: 'ac_unit',
+          bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
+          iconColor: 'text-sky-600',
+        })
+      } else if (
+        lower.includes('gula') ||
+        lower.includes('manis') ||
+        lower.includes('sugar') ||
+        lower.includes('%')
+      ) {
+        badges.push({
+          type: 'sugar',
+          label: p,
+          icon: 'water_drop',
+          bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+          iconColor: 'text-amber-600',
+        })
+      } else if (
+        lower.includes('topping') ||
+        lower.includes('boba') ||
+        lower.includes('pearl') ||
+        lower.includes('jelly') ||
+        lower.includes('nata') ||
+        lower.includes('aloe') ||
+        lower.includes('pudding')
+      ) {
+        badges.push({
+          type: 'topping',
+          label: p,
+          icon: 'add_circle',
+          bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
+          iconColor: 'text-emerald-600',
+        })
+      } else if (lower.includes('catatan') || lower.includes('note') || p.startsWith('"')) {
+        badges.push({
+          type: 'note',
+          label: p.replace(/^"|"$/g, ''),
+          icon: 'edit_note',
+          bgClass: 'bg-amber-50 text-amber-900 border-amber-300 italic font-medium',
+          iconColor: 'text-amber-700',
+        })
+      } else {
+        badges.push({
+          type: 'other',
+          label: p,
+          icon: 'tune',
+          bgClass: 'bg-surface-muted text-ink-muted border-border',
+          iconColor: 'text-ink-muted',
+        })
+      }
+    })
+  }
+
+  return badges
+}
+
