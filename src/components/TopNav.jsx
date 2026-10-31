@@ -139,26 +139,39 @@ export default function TopNav() {
   )
 
   const sidebarFooter = (
-    <div className="p-3 m-3 bg-surface-muted/60 rounded-2xl border border-border flex flex-col gap-2">
-      <div className="flex items-center justify-between text-xs text-ink-muted">
-        <span className="font-medium">Shift Kasir</span>
-        <span className="font-semibold text-ink bg-surface px-2 py-0.5 rounded-full border border-border text-[11px]">
-          Shift Aktif
-        </span>
-      </div>
-      <div className="text-xs text-ink flex items-center gap-1.5 font-medium">
-        <span className="material-symbols-outlined text-[15px] text-sage">schedule</span>
-        <span>08:00 - 22:00 WIB</span>
-      </div>
-      <div className="pt-2 flex items-center justify-between border-t border-border">
-        <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px] text-sage">print</span>
-          <span className="text-[11px] text-ink-muted">Thermal Print</span>
+    <div className="p-3 m-3 rounded-2xl border border-border bg-surface flex items-center gap-3">
+      {/* Avatar */}
+      <div className="relative shrink-0">
+        <div className="w-9 h-9 rounded-full bg-sage text-white font-bold text-sm flex items-center justify-center select-none">
+          {(user?.displayName || user?.email || 'A').charAt(0).toUpperCase()}
         </div>
-        <span className="text-[10px] bg-sage-light text-sage-dark px-2 py-0.5 rounded-full font-bold uppercase">
-          Siap
+        {/* Online dot */}
+        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-surface" />
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold text-ink truncate leading-tight">
+          {user?.displayName || user?.email?.split('@')[0] || 'Admin'}
+        </p>
+        <span className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+          isOwner ? 'bg-amber-100 text-amber-800' : 'bg-sage-light text-sage-dark'
+        }`}>
+          <span className="material-symbols-outlined text-[11px]">
+            {isOwner ? 'star' : 'badge'}
+          </span>
+          {ROLE_LABEL[role] || (isOwner ? 'Owner' : 'Kasir')}
         </span>
       </div>
+
+      {/* Logout shortcut */}
+      <button
+        onClick={logout}
+        title="Keluar"
+        className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-ink-muted hover:text-danger hover:bg-red-50 transition-colors"
+      >
+        <span className="material-symbols-outlined text-[18px]">logout</span>
+      </button>
     </div>
   )
 

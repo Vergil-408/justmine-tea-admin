@@ -46,6 +46,16 @@ function formatTime(ts) {
   return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
+function timeAgo(ts) {
+  const d = toDate(ts)
+  if (!d) return ''
+  const diffMins = Math.floor((Date.now() - d.getTime()) / 60000)
+  if (diffMins < 1) return 'Baru saja'
+  if (diffMins < 60) return `${diffMins} mnt lalu`
+  const diffHours = Math.floor(diffMins / 60)
+  return `${diffHours} jam lalu`
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -81,7 +91,7 @@ export default function Orders() {
     orders.forEach((o) => {
       if (c[o.status] !== undefined) c[o.status] += 1
     })
-    return c
+    return { ...c, aktif: c.diproses + c.menunggu }
   }, [orders])
 
   const parseOrderTime = (o) => {
@@ -90,6 +100,27 @@ export default function Orders() {
     if (typeof o.createdAt === 'number') return o.createdAt
     return o.submittedAt ? new Date(o.submittedAt).getTime() : 0
   }
+
+  const todayStats = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStart = today.getTime()
+
+    let revenue = 0
+    let count = 0
+
+    orders.forEach((o) => {
+      const t = parseOrderTime(o)
+      if (t >= todayStart && o.status !== 'dibatalkan') {
+        count += 1
+        if (o.paymentStatus === 'dibayar') {
+          revenue += (o.total ?? o.subtotal ?? 0)
+        }
+      }
+    })
+
+    return { revenue, count }
+  }, [orders])
 
   const isQueueTab = activeTab === 'aktif' || activeTab === 'diproses'
 
@@ -221,23 +252,104 @@ export default function Orders() {
               </span>
             )}
           </div>
-          <div className="flex gap-2 text-xs font-semibold">
-            <span className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-800">🍵 {counts.diproses} Diproses</span>
-            <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800">🔔 {counts.siap} Siap</span>
+        </div>
+
+        {/* Stat Cards Ringkasan */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          {/* Omzet Hari Ini */}
+          <div className="bg-surface rounded-2xl p-4 border border-border shadow-xs flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Omzet Hari Ini</p>
+              <p className="text-base sm:text-lg font-extrabold text-sage-dark mt-0.5 truncate">
+                {rupiah(todayStats.revenue)}
+              </p>
+              <p className="text-[10px] text-ink-muted mt-0.5">Pesanan lunas terbayar</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-sage-light text-sage-dark flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[22px]">payments</span>
+            </div>
+          </div>
+
+          {/* Total Pesanan Hari Ini */}
+          <div className="bg-surface rounded-2xl p-4 border border-border shadow-xs flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Pesanan Hari Ini</p>
+              <p className="text-base sm:text-lg font-extrabold text-ink mt-0.5">
+                {todayStats.count} <span className="text-xs font-medium text-ink-muted">transaksi</span>
+              </p>
+              <p className="text-[10px] text-ink-muted mt-0.5">Semua meja &amp; kasir</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-surface-muted text-ink flex items-center justify-center shrink-0 border border-border">
+              <span className="material-symbols-outlined text-[22px]">receipt_long</span>
+            </div>
+          </div>
+
+          {/* Sedang Diproses */}
+          <div className="bg-surface rounded-2xl p-4 border border-border shadow-xs flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider">Sedang Diproses</p>
+              <p className="text-base sm:text-lg font-extrabold text-blue-800 mt-0.5">
+                {counts.diproses} <span className="text-xs font-medium text-blue-600">antrean</span>
+              </p>
+              <p className="text-[10px] text-ink-muted mt-0.5">Sedang diracik barista</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[22px]">soup_kitchen</span>
+            </div>
+          </div>
+
+          {/* Siap Diambil */}
+          <div className="bg-surface rounded-2xl p-4 border border-border shadow-xs flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Siap Diambil</p>
+              <p className="text-base sm:text-lg font-extrabold text-emerald-800 mt-0.5">
+                {counts.siap} <span className="text-xs font-medium text-emerald-600">siap saji</span>
+              </p>
+              <p className="text-[10px] text-ink-muted mt-0.5">Menunggu pickup tamu</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[22px]">notifications_active</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${activeTab === t.key ? 'bg-sage text-white' : 'bg-surface border border-border text-ink-muted hover:bg-sage-light'
+        {/* Tab Filter Pesanan dengan Badge Counts */}
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
+          {TABS.map((t) => {
+            const countValue =
+              t.key === 'semua'
+                ? orders.length
+                : t.key === 'aktif'
+                ? counts.aktif
+                : counts[t.key] ?? 0
+
+            const isActive = activeTab === t.key
+
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                  isActive
+                    ? 'bg-sage text-white shadow-xs'
+                    : 'bg-surface border border-border text-ink-muted hover:bg-sage-light hover:text-ink'
                 }`}
-            >
-              {t.label}
-            </button>
-          ))}
+              >
+                <span>{t.label}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold transition-colors ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : countValue > 0
+                      ? 'bg-sage-light text-sage-dark'
+                      : 'bg-surface-muted text-ink-muted'
+                  }`}
+                >
+                  {countValue}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {loading && <p className="text-ink-muted text-sm">Memuat pesanan...</p>}
@@ -267,7 +379,14 @@ export default function Orders() {
                       <span>{order.customerName || order.userName}</span>
                     </p>
                   )}
-                  <p className="text-[11px] text-ink-muted mt-0.5">{formatTime(order.createdAt)}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-ink-muted">
+                    <span>{formatTime(order.createdAt)}</span>
+                    {order.status !== 'selesai' && order.status !== 'dibatalkan' && (
+                      <span className="px-1.5 py-0.2 rounded bg-surface-muted text-ink font-semibold">
+                        ⏱️ {timeAgo(order.createdAt)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-600'}`}>
                   {STATUS_LABEL[order.status] || order.status}
@@ -381,9 +500,10 @@ export default function Orders() {
               {order.paymentMethod === 'Bayar di Kasir' && order.paymentStatus === 'belum_dibayar' && order.status !== 'dibatalkan' && (
                 <button
                   onClick={() => markPaid(order)}
-                  className="w-full border border-sage text-sage-dark text-sm font-semibold py-2 rounded-xl hover:bg-sage-light transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 border border-sage bg-sage-light/40 text-sage-dark text-xs font-bold py-2.5 rounded-xl hover:bg-sage-light active:scale-[0.99] transition-all"
                 >
-                  Tandai sudah dibayar
+                  <span className="material-symbols-outlined text-[16px]">payments</span>
+                  <span>Tandai Sudah Dibayar</span>
                 </button>
               )}
 
@@ -391,14 +511,21 @@ export default function Orders() {
                 <div className="flex gap-2 mt-1">
                   <button
                     onClick={() => advance(order)}
-                    className="flex-1 bg-sage text-white text-sm font-semibold py-2 rounded-xl hover:bg-sage-dark transition-colors"
+                    className={`flex-1 flex items-center justify-center gap-1.5 text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl active:scale-[0.99] shadow-xs transition-all ${
+                      order.status === 'diproses'
+                        ? 'bg-sage hover:bg-sage-dark'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
                   >
-                    {nextActionLabel[order.status]}
+                    <span className="material-symbols-outlined text-[18px]">
+                      {order.status === 'diproses' ? 'notifications_active' : 'check_circle'}
+                    </span>
+                    <span>{nextActionLabel[order.status]}</span>
                   </button>
                   {order.status !== 'siap' && (
                     <button
                       onClick={() => cancelOrder(order)}
-                      className="px-3 py-2 rounded-xl border border-border text-danger text-sm font-semibold hover:bg-red-50 transition-colors"
+                      className="px-3 py-2.5 rounded-xl border border-border text-danger hover:text-white text-sm font-bold hover:bg-danger transition-colors"
                       title="Batalkan pesanan"
                     >
                       ✕
