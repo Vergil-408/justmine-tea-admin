@@ -176,36 +176,12 @@ export default function PosAdmin() {
 
   // --- Handlers Keranjang ---
   function handleItemClick(item) {
+    // Selalu buka modal kustomisasi (seperti di tampilan customer)
+    // agar kasir bisa input catatan atau pilihan gula/es/topping
+    setCustomizingItem(item)
     const resolved = resolveOptions(item, optionGroups)
-    if (resolved.length > 0) {
-      // Punya opsi kustomisasi -> Buka modal
-      setCustomizingItem(item)
-      setCustomSelection(normalizeSelection(resolved, {}))
-      setCustomQty(1)
-    } else {
-      // Tidak punya opsi -> Langsung masuk cart
-      const k = item.id
-      setCart((prev) => {
-        const existIdx = prev.findIndex((p) => p.lineKey === k)
-        if (existIdx >= 0) {
-          const next = [...prev]
-          next[existIdx] = { ...next[existIdx], qty: next[existIdx].qty + 1 }
-          return next
-        }
-        return [
-          ...prev,
-          {
-            id: item.id,
-            name: item.name,
-            price: item.price || 0,
-            basePrice: item.price || 0,
-            qty: 1,
-            selectedOptions: [],
-            lineKey: k,
-          },
-        ]
-      })
-    }
+    setCustomSelection(normalizeSelection(resolved, {}))
+    setCustomQty(1)
   }
 
   function handleAddCustomizedToCart() {
@@ -233,6 +209,7 @@ export default function PosAdmin() {
         {
           id: customizingItem.id,
           name: customizingItem.name,
+          category: customizingItem.category || '',
           price: unitPrice,
           basePrice: customizingItem.price || 0,
           qty: customQty,

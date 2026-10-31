@@ -10,6 +10,8 @@
 
 // Menu lama (category 'customizable') yang belum punya optionGroupIds
 // dibaca memakai grup-grup ini sampai dimigrasi ke Firestore.
+import { seedOptionGroups } from '../data/seedOptionGroups.js'
+
 export const LEGACY_GROUP_IDS = ['es', 'gula', 'susu', 'topping']
 
 export const getBasePrice = (item) => item?.basePrice ?? item?.price ?? 0
@@ -31,7 +33,7 @@ export function isFoodCategory(catOrItem) {
   if (typeof catOrItem === 'object') {
     if (catOrItem.itemType === 'food') return true
     if (catOrItem.itemType === 'drink') return false
-    return isFoodCategory(catOrItem.category)
+    return isFoodCategory(catOrItem.category) || isFoodCategory(catOrItem.name)
   }
   const cat = String(catOrItem).toLowerCase().trim()
   const foodKeywords = [
@@ -52,10 +54,11 @@ export function isSignatureCategory(catRaw) {
 }
 
 // Menggabungkan optionGroupIds (urutan tampil) + optionOverrides.
-// Hasil kosong = menu tanpa opsi. showIf TIDAK dievaluasi di sini
-// (itu bergantung pada pilihan user), jadi `.length > 0` aman dipakai untuk percabangan.
+// Hasil selalu memiliki fallback grup jika groups dari firestore belum termuat / kosong.
 export function resolveOptions(item, groups = []) {
   if (!item || item.customizable === false) return []
+
+  const effectiveGroups = groups && groups.length > 0 ? groups : seedOptionGroups
 
   const isFood = isFoodCategory(item)
   const isSignature = isSignatureCategory(item.category)
@@ -78,14 +81,13 @@ export function resolveOptions(item, groups = []) {
     }
   }
 
-
-
-  const byId = new Map(groups.map((g) => [g.id, g]))
+  const byId = new Map(effectiveGroups.map((g) => [g.id, g]))
+  const fallbackById = new Map(seedOptionGroups.map((g) => [g.id, g]))
   const overrides = item.optionOverrides ?? {}
   const out = []
 
   for (const gid of ids) {
-    const g = byId.get(gid)
+    const g = byId.get(gid) || fallbackById.get(gid)
     if (!g || g.active === false) continue
     const ov = overrides[gid] ?? {}
     const hidden = new Set(ov.hiddenChoiceIds ?? [])
