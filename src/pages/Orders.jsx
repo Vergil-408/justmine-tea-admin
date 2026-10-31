@@ -8,7 +8,6 @@ import { formatItemOptions, getItemCustomizationDetails } from '../utils/options
 
 const TABS = [
   { key: 'aktif', label: 'Aktif' },
-  { key: 'menunggu', label: 'Menunggu' },
   { key: 'diproses', label: 'Diproses' },
   { key: 'siap', label: 'Siap Diambil' },
   { key: 'selesai', label: 'Selesai' },
@@ -92,7 +91,7 @@ export default function Orders() {
     return o.submittedAt ? new Date(o.submittedAt).getTime() : 0
   }
 
-  const isQueueTab = activeTab === 'aktif' || activeTab === 'menunggu' || activeTab === 'diproses'
+  const isQueueTab = activeTab === 'aktif' || activeTab === 'diproses'
 
   const filtered = useMemo(() => {
     let list = []
@@ -114,7 +113,7 @@ export default function Orders() {
   }, [orders, activeTab, isQueueTab])
 
   async function advance(order) {
-    const next = { menunggu: 'diproses', diproses: 'siap', siap: 'selesai' }[order.status]
+    const next = { diproses: 'siap', siap: 'selesai' }[order.status]
     if (!next) return
     try {
       await updateOrderStatus(order.id, next)
@@ -150,7 +149,7 @@ export default function Orders() {
     }
   }
 
-  const nextActionLabel = { menunggu: 'Mulai Proses', diproses: 'Tandai Siap', siap: 'Selesaikan' }
+  const nextActionLabel = { diproses: 'Tandai Siap', siap: 'Selesaikan' }
 
   return (
     <div className="min-h-screen">
@@ -223,7 +222,6 @@ export default function Orders() {
             )}
           </div>
           <div className="flex gap-2 text-xs font-semibold">
-            <span className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800">⏳ {counts.menunggu} Menunggu</span>
             <span className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-800">🍵 {counts.diproses} Diproses</span>
             <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800">🔔 {counts.siap} Siap</span>
           </div>
@@ -389,7 +387,7 @@ export default function Orders() {
                 </button>
               )}
 
-              {(order.status === 'menunggu' || order.status === 'diproses' || order.status === 'siap') && (
+              {(order.status === 'diproses' || order.status === 'siap') && (
                 <div className="flex gap-2 mt-1">
                   <button
                     onClick={() => advance(order)}
