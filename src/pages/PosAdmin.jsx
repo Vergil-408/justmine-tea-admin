@@ -1408,82 +1408,178 @@ export default function PosAdmin() {
 
       {/* ================= TAMPILAN CETAK STRUK THERMAL (PRINT ONLY) ================= */}
       {completedOrder && (
-        <div className="hidden print:block font-mono text-[11px] leading-tight text-black max-w-[280px] mx-auto p-2 bg-white">
-          <div className="text-center mb-2">
-            <img src="/icon.png" alt="Justmine Tea" className="w-12 h-12 mx-auto object-contain mb-1 rounded-full border border-neutral-300" />
-            <h1 className="text-sm font-bold tracking-wider">JUSTMINE TEA</h1>
-            <p className="text-[10px]">Fresh Tea &amp; Modern Brews</p>
-            <p className="text-[9px]">Pamulang, Tangerang Selatan</p>
-            <p className="border-b border-dashed border-black my-1" />
-          </div>
-
-          <div className="flex justify-between text-[10px]">
-            <span>ID Pesanan: #{completedOrder.orderCode}</span>
-            <span>{new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <div className="text-[10px] mb-1">
-            <p>Lokasi: {completedOrder.tableNumber}</p>
-            <p>Pelanggan: {completedOrder.customerName}</p>
-          </div>
-
-          <p className="border-b border-dashed border-black my-1" />
-
-          {/* Item Pesanan */}
-          <div className="flex flex-col gap-1 my-1">
-            {(completedOrder.items || []).map((it, idx) => (
-              <div key={idx}>
-                <div className="flex justify-between">
-                  <span>
-                    {it.qty}x {it.name}
-                  </span>
-                  <span>{rupiah(it.price * it.qty)}</span>
-                </div>
-                {formatItemOptions(it) && (
-                  <p className="text-[9px] text-gray-700 pl-3 leading-none">{formatItemOptions(it)}</p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <p className="border-b border-dashed border-black my-1" />
-
-          {/* Rincian Bayar */}
-          <div className="flex flex-col gap-0.5 my-1 text-[10px]">
-            <div className="flex justify-between font-bold">
-              <span>TOTAL</span>
-              <span>{rupiah(completedOrder.total)}</span>
+        <div className="hidden print:block font-mono text-neutral-900 leading-tight bg-white p-0 max-w-none w-[78mm]">
+          {/* Logo & Identitas Brand */}
+          <div className="text-center pb-2">
+            <img
+              src="/icon.png"
+              alt="Justmine Tea Logo"
+              className="w-14 h-14 mx-auto object-contain rounded-full border border-neutral-300 mb-2 bg-white"
+            />
+            <h2 className="font-extrabold text-base tracking-[0.22em] text-black uppercase">
+              JUSTMINE TEA
+            </h2>
+            <p className="text-[9px] tracking-[0.18em] font-semibold text-neutral-700 uppercase mt-0.5">
+              ARTISANAL BOTANICAL INFUSION
+            </p>
+            <div className="text-[10px] text-neutral-600 mt-2 space-y-0.5 leading-snug">
+              <p>Justmine Tea Atelier - Outlet Pamulang</p>
+              <p>Jl. Surya Kencana No. 1, Pamulang Barat</p>
+              <p>TANGERANG SELATAN, BANTEN</p>
+              <p>TEL : (021) 7412-889</p>
             </div>
+          </div>
+
+          {/* Nomor Meja / Tipe Pesanan */}
+          <div className="py-2.5 text-center border-t border-dashed border-neutral-400 my-1">
+            <span className="text-xl font-black tracking-widest text-black">
+              {completedOrder.tableNumber && !completedOrder.tableNumber.toLowerCase().includes('take')
+                ? `TABLE - ${String(completedOrder.tableNumber).replace(/\D/g, '').padStart(2, '0') || completedOrder.tableNumber}`
+                : 'TAKE-AWAY'}
+            </span>
+          </div>
+
+          {/* Header Metadata */}
+          <div className="border-t border-dashed border-neutral-400 py-2 space-y-1 text-[11px]">
+            <div className="flex justify-between items-center">
+              <span className="font-bold">ID Pesanan :</span>
+              <span className="font-extrabold tracking-wider text-black">#{completedOrder.orderCode}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Date       :</span>
+              <span>
+                {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                &nbsp;
+                {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Kasir      :</span>
+              <div className="flex items-center gap-2">
+                <span>{completedOrder.cashierName || 'Kasir'}</span>
+                <span className="font-bold text-[10px] uppercase">
+                  {completedOrder.tableNumber && !completedOrder.tableNumber.toLowerCase().includes('take') ? 'DINE-IN' : 'TAKE-AWAY'}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Atas Nama  :</span>
+              <span className="font-bold">{completedOrder.customerName || 'Pelanggan'}</span>
+            </div>
+          </div>
+
+          {/* Daftar Item Pesanan & Kustomisasi */}
+          <div className="border-t border-dashed border-neutral-400 py-2.5 space-y-2.5 text-[11px]">
+            {(completedOrder.items || []).map((item, idx) => {
+              const lineTotal = (item.price || 0) * (item.qty || 1)
+              const options = formatItemOptions(item)
+              return (
+                <div key={idx} className="space-y-0.5">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="font-bold shrink-0">{item.qty}</span>
+                      <span className="font-bold text-black uppercase truncate">{item.name}</span>
+                    </div>
+                    <span className="font-bold shrink-0 text-black">
+                      {lineTotal.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  {options && (
+                    <p className="text-[10px] text-neutral-600 pl-4 leading-tight">
+                      - {options} {item.qty > 1 ? `(${item.qty}x @${Math.round(item.price / 1000)}k)` : ''}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Subtotal, Pajak/PB1, & TOTAL */}
+          <div className="border-t border-dashed border-neutral-400 py-2 space-y-1 text-[11px]">
             <div className="flex justify-between">
-              <span>Metode</span>
-              <span>{completedOrder.paymentMethod}</span>
+              <span>Subtotal :</span>
+              <span>{(completedOrder.items || []).reduce((s, it) => s + (it.price || 0) * (it.qty || 1), 0).toLocaleString('id-ID')}</span>
             </div>
-            {completedOrder.paymentMethod.includes('Tunai') && (
-              <>
-                <div className="flex justify-between">
-                  <span>Tunai</span>
-                  <span>{rupiah(completedOrder.cashTendered)}</span>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <span>KEMBALI</span>
-                  <span>{rupiah(completedOrder.change)}</span>
-                </div>
-              </>
-            )}
-            {completedOrder.pointsEarned > 0 && (
-              <div className="flex justify-between mt-1 text-[9px]">
-                <span>Poin Didapat:</span>
-                <span>+{completedOrder.pointsEarned} (Total: {completedOrder.currentPoints})</span>
-              </div>
-            )}
+            <div className="flex justify-between text-neutral-600">
+              <span>PB1 (Pajak Resto 0%) :</span>
+              <span>0</span>
+            </div>
+            <div className="flex justify-between text-neutral-600">
+              <span>Service Charge (0%) :</span>
+              <span>0</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-dashed border-neutral-400 text-sm font-black">
+              <span className="tracking-wider text-black">TOTAL &nbsp; :</span>
+              <span className="text-base font-black text-black">
+                Rp {Number(completedOrder.total || 0).toLocaleString('id-ID')}
+              </span>
+            </div>
           </div>
 
-          <p className="border-b border-dashed border-black my-1" />
+          {/* Rincian Pembayaran */}
+          <div className="border-t border-dashed border-neutral-400 py-2 space-y-1 text-[11px]">
+            <div className="flex justify-between items-center">
+              <span>Metode Bayar:</span>
+              <span className="font-bold">{completedOrder.paymentMethod}</span>
+            </div>
+            {completedOrder.paymentMethod.includes('Tunai') && completedOrder.cashTendered != null && (
+              <div className="flex justify-between items-center">
+                <span>Uang Diterima:</span>
+                <span className="font-bold">Rp {Number(completedOrder.cashTendered).toLocaleString('id-ID')}</span>
+              </div>
+            )}
+            {completedOrder.paymentMethod.includes('Tunai') && completedOrder.change != null && (
+              <div className="flex justify-between items-center font-black">
+                <span>KEMBALIAN  :</span>
+                <span>Rp {Number(completedOrder.change).toLocaleString('id-ID')}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <span>Status      :</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider border border-black text-black bg-neutral-100">
+                LUNAS / PAID
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Ref Transaksi:</span>
+              <span className="text-[10px] font-mono text-neutral-700">
+                TRX-JM-{completedOrder.orderCode}
+              </span>
+            </div>
+          </div>
 
-          <div className="text-center text-[9px] mt-2 leading-tight">
-            <p>Terima Kasih Atas Kunjungan Anda!</p>
-            <p className="mt-0.5 font-bold">E-Receipt Digital:</p>
-            <p className="text-[8px] break-all">
+          {/* Poin Loyalty */}
+          <div className="border-t border-dashed border-neutral-400 py-2.5 text-center space-y-1">
+            <p className="text-[11px] font-bold text-black">
+              Dapatkan {completedOrder.pointsEarned ?? Math.floor((completedOrder.total || 0) / 1000)} Poin Melati untuk transaksi ini!
+            </p>
+            {completedOrder.pointsEarned > 0 && completedOrder.currentPoints != null && (
+              <p className="text-[10px] text-neutral-600">
+                Total Poin Member: <span className="font-bold">{completedOrder.currentPoints} Poin</span>
+              </p>
+            )}
+            <p className="text-[9.5px] text-neutral-600 leading-tight italic">
+              Tunjukkan struk digital ini ke Barista untuk klaim poin member.
+            </p>
+            <p className="text-[9px] font-black tracking-[0.14em] text-neutral-800 uppercase mt-1">
+              MADE FROM AUTHENTIC BOTANICAL HARVEST!
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-dashed border-neutral-400 pt-3 pb-1 text-center space-y-1">
+            <p className="text-[11px] italic font-serif text-neutral-800">
+              &lsquo;Nikmati jeda teh terbaik Anda&rsquo;
+            </p>
+            <p className="text-[10px] text-neutral-700">
+              Terima kasih atas kunjungan Anda di Justmine Tea.
+            </p>
+            <p className="text-[10px] font-bold text-neutral-700 mt-1">E-Receipt Digital:</p>
+            <p className="text-[8px] break-all text-neutral-600">
               justmine-tea-customer.vercel.app/receipt/{completedOrder.orderId}
+            </p>
+            <p className="text-[8px] tracking-widest text-neutral-400 uppercase pt-1">
+              POS VERSION 4.2.1 • CLOUD SYNCED
             </p>
           </div>
         </div>
