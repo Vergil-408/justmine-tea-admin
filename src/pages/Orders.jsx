@@ -388,9 +388,16 @@ export default function Orders() {
                     )}
                   </div>
                 </div>
-                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {STATUS_LABEL[order.status] || order.status}
-                </span>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {STATUS_LABEL[order.status] || order.status}
+                  </span>
+                  {order.status === 'dibatalkan' && order.cancelledReason && (
+                    <span className="text-[10px] text-red-600 font-medium text-right max-w-[150px] leading-tight">
+                      {order.cancelledReason}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 text-[11px] text-ink-muted">
