@@ -766,7 +766,7 @@ export default function PosAdmin() {
                             <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-sage/40">
                               {optionLines.map((line, idx) => (
                                 <p key={idx} className="text-[11px] text-ink-muted leading-tight">
-                                  {line}
+                                  - {line}
                                 </p>
                               ))}
                             </div>
@@ -960,9 +960,9 @@ export default function PosAdmin() {
               id: 'gula',
               label: 'Tingkat Kemanisan',
               choices: [
-                { id: 'normal', label: 'Normal (100%)', priceDelta: 0 },
-                { id: 'less', label: 'Sedikit (50%)', priceDelta: 0 },
-                { id: 'no', label: 'Tanpa Gula (0%)', priceDelta: 0 },
+                { id: 'normal', label: 'Normal Sugar', priceDelta: 0 },
+                { id: 'less', label: 'Less Sugar', priceDelta: 0 },
+                { id: 'no', label: 'No Sugar', priceDelta: 0 },
               ],
             }
           : null
@@ -973,8 +973,8 @@ export default function PosAdmin() {
               label: 'Tingkat Es Batu',
               choices: [
                 { id: 'normal', label: 'Normal Ice', priceDelta: 0 },
-                { id: 'less', label: 'Sedikit Es', priceDelta: 0 },
-                { id: 'no', label: 'Tanpa Es', priceDelta: 0 },
+                { id: 'less', label: 'Less Ice', priceDelta: 0 },
+                { id: 'no', label: 'No Ice', priceDelta: 0 },
               ],
             }
           : null
@@ -1584,10 +1584,10 @@ export default function PosAdmin() {
                       </span>
                     </div>
                     {optionLines.length > 0 && (
-                      <div className="pl-6 space-y-0.5 text-[10px] text-neutral-600">
+                      <div className="pl-6 space-y-0.5 text-[10.5px] text-neutral-700 font-mono">
                         {optionLines.map((line, lIdx) => (
                           <p key={lIdx} className="leading-tight">
-                            {line}
+                            - {line}
                           </p>
                         ))}
                       </div>

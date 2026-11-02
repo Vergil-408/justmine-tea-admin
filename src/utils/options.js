@@ -252,18 +252,43 @@ export function formatItemOptions(item) {
 // Mengekstrak daftar baris kustomisasi item (Fore Coffee style) untuk struk, keranjang, dan rincian pesanan
 export function getItemOptionLines(item) {
   if (!item) return []
-  const formatRp = (n) => `Rp${Number(n || 0).toLocaleString('id-ID')}`
   const lines = []
+
+  const formatSugar = (text = '', id = '') => {
+    const s = `${text} ${id}`.toLowerCase()
+    if (s.includes('no') || s.includes('0%') || s.includes('tanpa')) return 'No Sugar'
+    if (s.includes('less') || s.includes('50%') || s.includes('sedikit')) return 'Less Sugar'
+    if (s.includes('normal') || s.includes('100%') || s.includes('gula')) return 'Normal Sugar'
+    return text || 'Normal Sugar'
+  }
+
+  const formatIce = (text = '', id = '') => {
+    const s = `${text} ${id}`.toLowerCase()
+    if (s.includes('no') || s.includes('tanpa')) return 'No Ice'
+    if (s.includes('less') || s.includes('sedikit')) return 'Less Ice'
+    if (s.includes('normal') || s.includes('es')) return 'Normal Ice'
+    return text || 'Normal Ice'
+  }
+
+  const formatTopping = (text = '') => {
+    let t = text.trim()
+    // Bersihkan delta harga bila ada di dalam kurung
+    t = t.replace(/\s*\(\+?Rp[^\)]+\)/i, '').trim()
+    if (!t.toLowerCase().startsWith('extra') && !t.toLowerCase().startsWith('ekstra')) {
+      return `Extra ${t}`
+    }
+    return t
+  }
 
   // 1. Paket Bundling
   if (item.isBundle && Array.isArray(item.bundleSlots)) {
     item.bundleSlots.forEach((slot, idx) => {
       const title = slot.drinkName || `Cup ${idx + 1}`
       lines.push(`${slot.slotTitle || `Cup ${idx + 1}`}: ${title}`)
-      if (slot.sugarLabel) lines.push(`• ${slot.sugarLabel}`)
-      if (slot.iceLabel) lines.push(`• ${slot.iceLabel}`)
-      if (slot.toppingLabel) lines.push(`• ${slot.toppingLabel}${slot.toppingPrice ? ` (+${formatRp(slot.toppingPrice)})` : ''}`)
-      if (slot.note) lines.push(`• Catatan: "${slot.note}"`)
+      if (slot.sugar || slot.sugarLabel) lines.push(formatSugar(slot.sugarLabel, slot.sugar))
+      if (slot.ice || slot.iceLabel) lines.push(formatIce(slot.iceLabel, slot.ice))
+      if (slot.topping || slot.toppingLabel) lines.push(formatTopping(slot.toppingLabel || slot.topping))
+      if (slot.note) lines.push(`Catatan: "${slot.note}"`)
     })
     return lines
   }
@@ -279,9 +304,35 @@ export function getItemOptionLines(item) {
       const glabel = (opt.groupLabel || '').toLowerCase()
 
       if (cid === 'note' || gid === 'catatan' || glabel.includes('catatan') || glabel.includes('note')) {
-        lines.push(`Catatan: "${rawText}"`)
-      } else if (opt.priceDelta && opt.priceDelta > 0) {
-        lines.push(`${rawText} (+${formatRp(opt.priceDelta)})`)
+        lines.push(rawText.toLowerCase().startsWith('catatan') ? rawText : `Catatan: "${rawText}"`)
+      } else if (
+        gid === 'gula' ||
+        gid.includes('sugar') ||
+        glabel.includes('gula') ||
+        glabel.includes('manis') ||
+        glabel.includes('sugar') ||
+        cid.includes('sugar')
+      ) {
+        lines.push(formatSugar(rawText, cid))
+      } else if (
+        gid === 'es' ||
+        gid.includes('ice') ||
+        glabel.includes('es') ||
+        glabel.includes('ice') ||
+        cid.includes('ice')
+      ) {
+        lines.push(formatIce(rawText, cid))
+      } else if (
+        gid === 'topping' ||
+        gid.includes('addon') ||
+        glabel.includes('topping') ||
+        glabel.includes('add-on') ||
+        glabel.includes('tambahan') ||
+        cid.includes('top') ||
+        cid.includes('pearl') ||
+        cid.includes('jelly')
+      ) {
+        lines.push(formatTopping(rawText))
       } else {
         lines.push(rawText)
       }
@@ -289,19 +340,37 @@ export function getItemOptionLines(item) {
     return lines
   }
 
-  // 3. Format legacy detail
+  // 3. Format legacy detail (object)
   const d = item.detail
   if (d && typeof d === 'object') {
-    if (d.sweetness) lines.push(d.sweetness)
-    if (d.ice) lines.push(d.ice)
+    if (d.sweetness) lines.push(formatSugar(d.sweetness))
+    if (d.ice) lines.push(formatIce(d.ice))
     if (d.milk) lines.push(`Susu: ${d.milk}`)
     if (Array.isArray(d.toppings)) {
-      d.toppings.forEach((t) => lines.push(String(t)))
+      d.toppings.forEach((t) => lines.push(formatTopping(String(t))))
     } else if (typeof d.toppings === 'string' && d.toppings.trim()) {
-      d.toppings.split(',').forEach((t) => lines.push(t.trim()))
+      d.toppings.split(',').forEach((t) => lines.push(formatTopping(t.trim())))
     }
-    if (d.note) lines.push(`Catatan: "${d.note}"`)
+    if (d.note) lines.push(d.note.toLowerCase().startsWith('catatan') ? d.note : `Catatan: "${d.note}"`)
     return lines
+  }
+
+  // 4. Fallback jika string opsi ada di item / formatItemOptions lama (mis. "- Sedikit (50%) · Normal Ice · Nata de Coco · Grass Jelly")
+  const rawFallback = typeof item.options === 'string' ? item.options : typeof item.opts === 'string' ? item.opts : formatItemOptions(item)
+  if (rawFallback && typeof rawFallback === 'string') {
+    const parts = rawFallback.replace(/^-\s*/, '').split(/·|•|,/).map((p) => p.trim()).filter(Boolean)
+    for (const p of parts) {
+      const pl = p.toLowerCase()
+      if (pl.includes('gula') || pl.includes('sedikit') || pl.includes('%') || pl.includes('sugar') || pl.includes('manis')) {
+        lines.push(formatSugar(p))
+      } else if (pl.includes('es') || pl.includes('ice')) {
+        lines.push(formatIce(p))
+      } else if (pl.includes('nata') || pl.includes('jelly') || pl.includes('boba') || pl.includes('pearl') || pl.includes('aloe') || pl.includes('cincau') || pl.includes('topping')) {
+        lines.push(formatTopping(p))
+      } else {
+        lines.push(p)
+      }
+    }
   }
 
   return lines
@@ -333,9 +402,14 @@ export function getItemCustomizationDetails(item) {
         glabel.includes('ice') ||
         cid.includes('ice')
       ) {
+        const iceLabel = (rawText.toLowerCase().includes('no') || cid.includes('no') || rawText.toLowerCase().includes('tanpa'))
+          ? 'No Ice'
+          : (rawText.toLowerCase().includes('less') || cid.includes('less') || rawText.toLowerCase().includes('sedikit'))
+          ? 'Less Ice'
+          : 'Normal Ice'
         badges.push({
           type: 'ice',
-          label: clabel || rawText,
+          label: iceLabel,
           icon: 'ac_unit',
           bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
           iconColor: 'text-sky-600',
@@ -348,9 +422,14 @@ export function getItemCustomizationDetails(item) {
         glabel.includes('sugar') ||
         cid.includes('sugar')
       ) {
+        const sugarLabel = (rawText.toLowerCase().includes('no') || cid.includes('no') || rawText.toLowerCase().includes('0%') || rawText.toLowerCase().includes('tanpa'))
+          ? 'No Sugar'
+          : (rawText.toLowerCase().includes('less') || cid.includes('less') || rawText.toLowerCase().includes('50%') || rawText.toLowerCase().includes('sedikit'))
+          ? 'Less Sugar'
+          : 'Normal Sugar'
         badges.push({
           type: 'sugar',
-          label: clabel || rawText,
+          label: sugarLabel,
           icon: 'water_drop',
           bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
           iconColor: 'text-amber-600',
@@ -360,12 +439,17 @@ export function getItemCustomizationDetails(item) {
         gid.includes('addon') ||
         glabel.includes('topping') ||
         glabel.includes('add-on') ||
-        glabel.includes('tambahan')
+        glabel.includes('tambahan') ||
+        cid.includes('top')
       ) {
         const delta = opt.priceDelta ? ` (+${formatRp(opt.priceDelta)})` : ''
+        const topClean = clabel.replace(/\s*\(\+?Rp[^\)]+\)/i, '').trim()
+        const topLabel = (topClean.toLowerCase().startsWith('extra') || topClean.toLowerCase().startsWith('ekstra'))
+          ? topClean
+          : `Extra ${topClean}`
         badges.push({
           type: 'topping',
-          label: `${clabel}${delta}`,
+          label: `${topLabel}${delta}`,
           icon: 'add_circle',
           bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80 font-semibold',
           iconColor: 'text-emerald-600',

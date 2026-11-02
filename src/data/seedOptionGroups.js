@@ -12,9 +12,9 @@ export const seedOptionGroups = [
     order: 1,
     active: true,
     choices: [
-      { id: 'normal', label: 'Normal', summary: 'Gula Normal', priceDelta: 0, available: true },
-      { id: 'less', label: 'Less', summary: 'Gula Less', priceDelta: 0, available: true },
-      { id: 'no', label: 'No Sugar', summary: 'Tanpa Gula', priceDelta: 0, available: true },
+      { id: 'normal', label: 'Normal Sugar', summary: 'Normal Sugar', priceDelta: 0, available: true },
+      { id: 'less', label: 'Less Sugar', summary: 'Less Sugar', priceDelta: 0, available: true },
+      { id: 'no', label: 'No Sugar', summary: 'No Sugar', priceDelta: 0, available: true },
     ],
   },
   {
@@ -29,9 +29,9 @@ export const seedOptionGroups = [
     order: 2,
     active: true,
     choices: [
-      { id: 'normal', label: 'Normal', icon: 'ac_unit', summary: 'Es Normal', priceDelta: 0, available: true },
-      { id: 'less', label: 'Less Ice', icon: 'severe_cold', summary: 'Es Sedikit', priceDelta: 0, available: true },
-      { id: 'no', label: 'No Ice', icon: 'block', summary: 'Tanpa Es', priceDelta: 0, available: true },
+      { id: 'normal', label: 'Normal Ice', icon: 'ac_unit', summary: 'Normal Ice', priceDelta: 0, available: true },
+      { id: 'less', label: 'Less Ice', icon: 'severe_cold', summary: 'Less Ice', priceDelta: 0, available: true },
+      { id: 'no', label: 'No Ice', icon: 'block', summary: 'No Ice', priceDelta: 0, available: true },
     ],
   },
   {
