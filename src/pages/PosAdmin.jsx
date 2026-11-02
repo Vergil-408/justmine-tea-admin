@@ -1496,8 +1496,8 @@ export default function PosAdmin() {
         const orderTotal = Number(completedOrder.total || 0)
         const discount = Number(completedOrder.discount || 0)
         const finalSubtotal = Math.max(0, orderTotal - discount)
-        const netSales = Math.round(finalSubtotal / 1.1)
-        const pb1Amount = finalSubtotal - netSales
+        const netSales = Math.round(finalSubtotal / 1.11)
+        const ppnAmount = finalSubtotal - netSales
         const isCash = (completedOrder.paymentMethod || '').toLowerCase().includes('tunai')
 
         return (
@@ -1616,8 +1616,8 @@ export default function PosAdmin() {
                 <span>Rp {netSales.toLocaleString('id-ID')}</span>
               </div>
               <div className="flex justify-between text-neutral-600">
-                <span>PB1 10%</span>
-                <span>Rp {pb1Amount.toLocaleString('id-ID')}</span>
+                <span>PPN 11%</span>
+                <span>Rp {ppnAmount.toLocaleString('id-ID')}</span>
               </div>
               <div className="flex justify-between items-center font-bold text-black pt-1 border-t border-dotted border-neutral-300">
                 <span>{completedOrder.paymentMethod}</span>
