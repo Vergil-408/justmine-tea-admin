@@ -90,6 +90,8 @@ export default function PosAdmin() {
   const [customizingItem, setCustomizingItem] = useState(null)
   const [customSelection, setCustomSelection] = useState({})
   const [customQty, setCustomQty] = useState(1)
+  // null = mode tambah baru; string = lineKey item yang sedang diedit
+  const [editingLineKey, setEditingLineKey] = useState(null)
 
   // --- Modal Transaksi Selesai ---
   const [submitting, setSubmitting] = useState(false)
@@ -197,29 +199,88 @@ export default function PosAdmin() {
     const unitPrice = computeUnitPrice(customizingItem, selectedOptions)
     const k = lineKey(customizingItem.id, selectedOptions)
 
-    setCart((prev) => {
-      const existIdx = prev.findIndex((p) => p.lineKey === k)
-      if (existIdx >= 0) {
-        const next = [...prev]
-        next[existIdx] = { ...next[existIdx], qty: next[existIdx].qty + customQty }
-        return next
-      }
-      return [
-        ...prev,
-        {
-          id: customizingItem.id,
-          name: customizingItem.name,
-          category: customizingItem.category || '',
-          price: unitPrice,
-          basePrice: customizingItem.price || 0,
-          qty: customQty,
-          selectedOptions,
-          lineKey: k,
-        },
-      ]
-    })
+    if (editingLineKey) {
+      // Mode EDIT: replace item lama dengan yang baru
+      setCart((prev) => {
+        const filtered = prev.filter((p) => p.lineKey !== editingLineKey)
+        const existIdx = filtered.findIndex((p) => p.lineKey === k)
+        if (existIdx >= 0) {
+          // merge qty jika pilihan baru sama dengan item lain yang sudah ada
+          const next = [...filtered]
+          next[existIdx] = { ...next[existIdx], qty: next[existIdx].qty + customQty }
+          return next
+        }
+        return [
+          ...filtered,
+          {
+            id: customizingItem.id,
+            name: customizingItem.name,
+            category: customizingItem.category || '',
+            price: unitPrice,
+            basePrice: customizingItem.price || 0,
+            qty: customQty,
+            selectedOptions,
+            lineKey: k,
+          },
+        ]
+      })
+    } else {
+      // Mode TAMBAH BARU
+      setCart((prev) => {
+        const existIdx = prev.findIndex((p) => p.lineKey === k)
+        if (existIdx >= 0) {
+          const next = [...prev]
+          next[existIdx] = { ...next[existIdx], qty: next[existIdx].qty + customQty }
+          return next
+        }
+        return [
+          ...prev,
+          {
+            id: customizingItem.id,
+            name: customizingItem.name,
+            category: customizingItem.category || '',
+            price: unitPrice,
+            basePrice: customizingItem.price || 0,
+            qty: customQty,
+            selectedOptions,
+            lineKey: k,
+          },
+        ]
+      })
+    }
 
     setCustomizingItem(null)
+    setEditingLineKey(null)
+  }
+
+  // Buka modal edit untuk item yang sudah di cart
+  function handleEditCartItem(cartItem) {
+    const menuItem = menuItems.find((m) => m.id === cartItem.id) || {
+      id: cartItem.id,
+      name: cartItem.name,
+      price: cartItem.basePrice || cartItem.price,
+      category: cartItem.category || '',
+    }
+    const resolved = resolveOptions(menuItem, optionGroups)
+
+    // Rebuild selection dari selectedOptions yang tersimpan
+    const restoredSelection = {}
+    for (const g of resolved) {
+      if (g.ui === 'note') {
+        const noteOpt = cartItem.selectedOptions?.find((o) => o.groupId === g.id)
+        restoredSelection[g.id] = noteOpt?.choiceLabel ?? ''
+      } else {
+        const picked = (cartItem.selectedOptions || [])
+          .filter((o) => o.groupId === g.id)
+          .map((o) => o.choiceId)
+        restoredSelection[g.id] = picked.length > 0 ? picked : (normalizeSelection([g], {})[g.id] ?? [])
+      }
+    }
+
+    setCustomizingItem(menuItem)
+    setCustomSelection(restoredSelection)
+    setCustomQty(cartItem.qty)
+    setEditingLineKey(cartItem.lineKey)
   }
 
   function updateCartQty(lineKeyStr, delta) {
@@ -719,28 +780,39 @@ export default function PosAdmin() {
                           </p>
                         </div>
 
-                        {/* Stepper Qty */}
-                        <div className="flex items-center gap-1 shrink-0 bg-surface rounded-lg border border-border p-0.5">
-                          <button
-                            onClick={() => updateCartQty(it.lineKey, -1)}
-                            className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:bg-sage-light hover:text-sage-dark text-xs font-bold"
-                          >
-                            -
-                          </button>
-                          <span className="w-5 text-center font-bold text-xs">{it.qty}</span>
-                          <button
-                            onClick={() => updateCartQty(it.lineKey, 1)}
-                            className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:bg-sage-light hover:text-sage-dark text-xs font-bold"
-                          >
-                            +
-                          </button>
-                          <button
-                            onClick={() => removeFromCart(it.lineKey)}
-                            title="Hapus"
-                            className="w-6 h-6 ml-0.5 rounded flex items-center justify-center text-ink-muted hover:text-danger hover:bg-red-50 text-xs"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">delete</span>
-                          </button>
+                        {/* Stepper Qty + Edit + Hapus */}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <div className="flex items-center gap-1 bg-surface rounded-lg border border-border p-0.5">
+                            <button
+                              onClick={() => updateCartQty(it.lineKey, -1)}
+                              className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:bg-sage-light hover:text-sage-dark text-xs font-bold"
+                            >
+                              -
+                            </button>
+                            <span className="w-5 text-center font-bold text-xs">{it.qty}</span>
+                            <button
+                              onClick={() => updateCartQty(it.lineKey, 1)}
+                              className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:bg-sage-light hover:text-sage-dark text-xs font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleEditCartItem(it)}
+                              title="Edit pilihan"
+                              className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:text-primary hover:bg-blue-50 text-xs transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                            </button>
+                            <button
+                              onClick={() => removeFromCart(it.lineKey)}
+                              title="Hapus"
+                              className="w-6 h-6 rounded flex items-center justify-center text-ink-muted hover:text-danger hover:bg-red-50 text-xs transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -936,13 +1008,15 @@ export default function PosAdmin() {
           return sum + (c?.priceDelta ?? 0)
         }, 0)
         const basePrice = customizingItem.price || 0
-        const modalUnitPrice = basePrice + toppingDelta
+        // Fix: hitung dari SEMUA selectedOptions, bukan cuma topping
+        const previewOptions = buildSelectedOptions(resolved, customSelection)
+        const modalUnitPrice = computeUnitPrice(customizingItem, previewOptions)
         const modalGrandTotal = modalUnitPrice * customQty
 
         return (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
             {/* Backdrop click to close */}
-            <div className="fixed inset-0" onClick={() => setCustomizingItem(null)} aria-hidden="true" />
+            <div className="fixed inset-0" onClick={closeCustomizingModal} aria-hidden="true" />
 
             {/* Container */}
             <div className="relative z-10 w-full sm:max-w-4xl bg-surface rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-250">
@@ -956,7 +1030,7 @@ export default function PosAdmin() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setCustomizingItem(null)}
+                    onClick={closeCustomizingModal}
                     aria-label="Kembali"
                     className="w-9 h-9 rounded-full flex items-center justify-center text-ink hover:bg-sage-light active:scale-95 transition-all -ml-1"
                   >
@@ -967,14 +1041,14 @@ export default function PosAdmin() {
                       Justmine Tea — Kasir POS
                     </span>
                     <h2 className="text-sm sm:text-base font-bold text-ink leading-tight">
-                      {isFoodOrSweets ? 'Catatan & Kustom Makanan' : 'Kustomisasi Minuman'}
+                      {editingLineKey ? 'Edit Pesanan' : isFoodOrSweets ? 'Catatan & Kustom Makanan' : 'Kustomisasi Minuman'}
                     </h2>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setCustomizingItem(null)}
+                  onClick={closeCustomizingModal}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-ink-muted hover:bg-sage-light transition-colors"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -1020,9 +1094,17 @@ export default function PosAdmin() {
                   <div className="bg-surface rounded-2xl p-4 border border-border flex flex-col gap-1.5 shadow-xs min-w-0 overflow-hidden">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-xl sm:text-2xl font-bold text-ink leading-tight break-words">
-                          {customizingItem.name}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xl sm:text-2xl font-bold text-ink leading-tight break-words">
+                            {customizingItem.name}
+                          </h3>
+                          {editingLineKey && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold border border-blue-200">
+                              <span className="material-symbols-outlined text-[12px]">edit</span>
+                              Edit Pesanan
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-sage-dark font-medium mt-0.5">
                           Kategori: {customizingItem.category || 'Teh Nusantara'}
                         </p>
@@ -1314,8 +1396,12 @@ export default function PosAdmin() {
                   onClick={handleAddCustomizedToCart}
                   className="flex-1 py-3 px-4 rounded-2xl font-bold text-xs sm:text-sm text-white bg-sage hover:bg-sage-dark active:scale-[0.98] shadow-md transition-all flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-                  <span className="truncate">Tambah ke Pesanan Kasir • {rupiah(modalGrandTotal)}</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    {editingLineKey ? 'check_circle' : 'shopping_cart'}
+                  </span>
+                  <span className="truncate">
+                    {editingLineKey ? `Simpan Perubahan • ${rupiah(modalGrandTotal)}` : `Tambah ke Pesanan Kasir • ${rupiah(modalGrandTotal)}`}
+                  </span>
                 </button>
               </div>
             </div>
