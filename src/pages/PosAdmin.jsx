@@ -253,6 +253,11 @@ export default function PosAdmin() {
     setEditingLineKey(null)
   }
 
+  function closeCustomizingModal() {
+    setCustomizingItem(null)
+    setEditingLineKey(null)
+  }
+
   // Buka modal edit untuk item yang sudah di cart
   function handleEditCartItem(cartItem) {
     const menuItem = menuItems.find((m) => m.id === cartItem.id) || {
