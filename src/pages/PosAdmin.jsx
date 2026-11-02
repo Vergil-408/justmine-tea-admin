@@ -341,7 +341,7 @@ export default function PosAdmin() {
 
     setSubmitting(true)
 
-    const finalCustomerName = selectedMember?.displayName || guestName.trim() || 'Pelanggan Kasir'
+    const finalCustomerName = selectedMember?.displayName || guestName.trim() || 'Guest'
     const finalCustomerPhone = selectedMember?.phone || guestPhone.trim() || ''
     const finalTable = orderType === 'takeaway' ? 'Takeaway' : tableNumber ? `Meja ${tableNumber}` : 'Kasir'
 
@@ -420,7 +420,7 @@ export default function PosAdmin() {
     const receiptUrl = `https://justmine-tea-customer.vercel.app/receipt/${order.orderId}`
     const text =
       `*JUSTMINE TEA - STRUK RESMI* 🍵\n` +
-      `Halo Kak *${order.customerName || 'Pelanggan'}*! Terima kasih sudah mampir dan pesan di Justmine Tea.\n\n` +
+      `Halo Kak *${order.customerName && order.customerName !== 'Pelanggan' ? order.customerName : 'Guest'}*! Terima kasih sudah mampir dan pesan di Justmine Tea.\n\n` +
       `📋 *No. Pesanan:* #${order.orderCode}\n` +
       `📍 *Tipe:* ${order.tableNumber}\n` +
       `💳 *Metode:* ${order.paymentMethod}\n` +
@@ -627,7 +627,77 @@ export default function PosAdmin() {
 
           {/* ================= KOLOM KANAN: MEMBER, CART & PEMBAYARAN ================= */}
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4 sticky top-16">
-            {/* 1. KARTU MEMBER / LOYALTY */}
+            {/* 1. TIPE LAYANAN & NOMOR MEJA */}
+            <div className="bg-surface rounded-2xl p-3.5 border border-border shadow-sm flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-sage">table_restaurant</span>
+                  Tipe Pesanan &amp; Meja
+                </span>
+                <span className="text-[11px] font-semibold text-ink-muted">
+                  {orderType === 'dine_in'
+                    ? `Dine-In · ${tableNumber ? (tableNumber.toLowerCase().includes('meja') ? tableNumber : `Meja ${tableNumber}`) : 'Belum diisi'}`
+                    : 'Takeaway'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderType('dine_in')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    orderType === 'dine_in'
+                      ? 'bg-sage text-white shadow-sm'
+                      : 'bg-background border border-border text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">restaurant</span>
+                  Dine-In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('takeaway')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    orderType === 'takeaway'
+                      ? 'bg-sage text-white shadow-sm'
+                      : 'bg-background border border-border text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">shopping_bag</span>
+                  Takeaway
+                </button>
+              </div>
+
+              {orderType === 'dine_in' && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/60">
+                  <label className="text-xs font-bold text-ink shrink-0">No. Meja:</label>
+                  <input
+                    type="text"
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    placeholder="Contoh: 1, 2, Bar..."
+                    className="flex-1 px-3 py-1.5 rounded-xl text-xs font-bold border border-border bg-background focus:outline-none focus:ring-2 focus:ring-sage"
+                  />
+                  <div className="flex gap-1 shrink-0">
+                    {['1', '2', '3', '4', '5'].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setTableNumber(n)}
+                        className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                          tableNumber === n
+                            ? 'bg-sage-dark text-white'
+                            : 'bg-background border border-border text-ink-muted hover:bg-sage-light'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. KARTU MEMBER / LOYALTY */}
             <div className="bg-surface rounded-2xl p-4 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
@@ -1408,81 +1478,246 @@ export default function PosAdmin() {
 
       {/* ================= MODAL TRANSAKSI BERHASIL & STRUK ================= */}
       {completedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface border border-border rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 flex flex-col items-center text-center">
-            {/* Animasi Ikon Sukses */}
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
-              <span className="material-symbols-outlined text-[36px]">check_circle</span>
-            </div>
-
-            <h2 className="text-xl font-extrabold text-ink">Transaksi Berhasil!</h2>
-            <p className="text-xs text-ink-muted mt-0.5">Pesanan otomatis masuk ke antrean dapur.</p>
-
-            {/* Badge Kode Pesanan */}
-            <div className="my-3 px-4 py-1.5 rounded-full bg-sage-light text-sage-dark font-mono font-bold text-lg border border-sage/30">
-              #{completedOrder.orderCode}
-            </div>
-
-            {/* Rincian Finansial */}
-            <div className="w-full bg-background rounded-2xl p-4 border border-border my-2 flex flex-col gap-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Tipe / Lokasi:</span>
-                <span className="font-bold text-ink">{completedOrder.tableNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Metode Pembayaran:</span>
-                <span className="font-bold text-ink">{completedOrder.paymentMethod}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Total Pembayaran:</span>
-                <span className="font-bold text-sage-dark">{rupiah(completedOrder.total)}</span>
-              </div>
-              {completedOrder.paymentMethod.includes('Tunai') && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-ink-muted">Uang Diterima:</span>
-                    <span className="font-semibold text-ink">{rupiah(completedOrder.cashTendered)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t border-border">
-                    <span>Kembalian:</span>
-                    <span className="text-sm">{rupiah(completedOrder.change)}</span>
-                  </div>
-                </>
-              )}
-              {completedOrder.pointsEarned > 0 && (
-                <div className="flex justify-between font-bold text-sage-dark pt-1 border-t border-border">
-                  <span>Poin Member Didapat:</span>
-                  <span>+{completedOrder.pointsEarned} Poin (Total: {completedOrder.currentPoints})</span>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 print:hidden overflow-y-auto">
+          <div className="bg-surface border border-border rounded-3xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+            {/* Header Modal */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-surface shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[22px]">check_circle</span>
                 </div>
-              )}
+                <div>
+                  <h2 className="text-sm sm:text-base font-extrabold text-ink leading-tight">Transaksi Berhasil!</h2>
+                  <p className="text-[11px] text-ink-muted">Pesanan masuk antrean · #{completedOrder.orderCode}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleNewTransaction}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ink-muted hover:text-ink hover:bg-background transition-colors"
+                title="Tutup & Transaksi Baru"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
 
-            {/* Tombol Aksi: WhatsApp, Cetak, Transaksi Baru */}
-            <div className="w-full flex flex-col gap-2 mt-3">
-              {/* WhatsApp Button */}
-              <button
-                onClick={() => sendWhatsAppReceipt(completedOrder)}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">chat</span>
-                <span>Kirim Struk via WhatsApp (Gratis)</span>
-              </button>
+            {/* Area Pratinjau Struk Thermal (Identik Customer E-Receipt ala Fore Coffee) */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-neutral-100 flex justify-center">
+              <div className="w-full max-w-[340px] bg-white border border-neutral-300 rounded-xl shadow-md p-4 font-mono text-neutral-900 leading-tight text-[11px]">
+                {/* Brand & Outlet Header */}
+                <div className="text-center pb-2">
+                  <img
+                    src="/icon.png"
+                    alt="Justmine Tea Logo"
+                    className="w-12 h-12 mx-auto object-contain rounded-full border border-neutral-200 mb-1.5 bg-white"
+                  />
+                  <h3 className="font-extrabold text-sm tracking-[0.2em] text-black uppercase">
+                    JUSTMINE TEA
+                  </h3>
+                  <p className="text-[8.5px] tracking-[0.16em] font-semibold text-neutral-600 uppercase mt-0.5">
+                    ARTISANAL BOTANICAL INFUSION
+                  </p>
+                  <div className="text-[9.5px] text-neutral-600 mt-1.5 space-y-0.5 leading-snug">
+                    <p>Justmine Tea Atelier - Outlet Pamulang</p>
+                    <p>Jl. Surya Kencana No. 1, Pamulang Barat</p>
+                    <p>TANGERANG SELATAN, BANTEN</p>
+                    <p>TEL : (021) 7412-889</p>
+                  </div>
+                </div>
 
-              {/* Cetak Struk */}
-              <button
-                onClick={() => window.print()}
-                className="w-full py-2.5 px-4 rounded-xl bg-surface border border-border hover:bg-background text-ink font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">print</span>
-                <span>Cetak Struk Kertas (Thermal)</span>
-              </button>
+                {/* Table / Takeaway Banner */}
+                <div className="py-2 text-center border-t border-dashed border-neutral-400 my-1">
+                  <span className="text-lg font-black tracking-widest text-black">
+                    {completedOrder.tableNumber && !completedOrder.tableNumber.toLowerCase().includes('take')
+                      ? `TABLE - ${String(completedOrder.tableNumber).replace(/\D/g, '').padStart(2, '0') || completedOrder.tableNumber}`
+                      : 'TAKE-AWAY'}
+                  </span>
+                </div>
 
-              {/* Transaksi Baru */}
+                {/* Metadata */}
+                <div className="border-t border-dashed border-neutral-400 py-2 space-y-1 text-[10.5px]">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">ID Pesanan :</span>
+                    <span className="font-extrabold tracking-wider text-black">#{completedOrder.orderCode}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Date       :</span>
+                    <span>
+                      {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      &nbsp;
+                      {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Kasir      :</span>
+                    <div className="flex items-center gap-2">
+                      <span>{completedOrder.cashierName || 'Kasir'}</span>
+                      <span className="font-bold text-[10px] uppercase">
+                        {completedOrder.tableNumber && !completedOrder.tableNumber.toLowerCase().includes('take') ? 'DINE-IN' : 'TAKE-AWAY'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Atas Nama  :</span>
+                    <span className="font-bold">
+                      {completedOrder.customerName && completedOrder.customerName !== 'Pelanggan' ? completedOrder.customerName : 'Guest'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Order Header */}
+                <div className="border-t border-dashed border-neutral-400 pt-2 pb-1 flex justify-between items-center text-xs font-bold text-black">
+                  <span>Order</span>
+                  <span>Total Order: {(completedOrder.items || []).reduce((s, it) => s + (it.qty || 1), 0)}</span>
+                </div>
+
+                {/* Item List */}
+                <div className="border-b border-dashed border-neutral-400 pb-2 space-y-1.5 text-[10.5px]">
+                  {(completedOrder.items || []).map((item, idx) => {
+                    const lineTotal = (item.price || 0) * (item.qty || 1)
+                    const optionLines = getItemOptionLines(item)
+                    return (
+                      <div key={idx} className="space-y-0.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex items-start gap-1.5 min-w-0">
+                            <span className="font-bold shrink-0">{item.qty} x</span>
+                            <span className="font-bold text-black uppercase leading-tight">{item.name}</span>
+                          </div>
+                          <span className="font-bold shrink-0 text-black">
+                            Rp {lineTotal.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        {optionLines.length > 0 && (
+                          <div className="pl-5 space-y-0.5 text-[10px] text-neutral-700 font-mono">
+                            {optionLines.map((line, lIdx) => (
+                              <p key={lIdx} className="leading-tight">
+                                - {line}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Financial Summary */}
+                {(() => {
+                  const orderTotal = Number(completedOrder.total || 0)
+                  const discount = Number(completedOrder.discount || 0)
+                  const finalSubtotal = Math.max(0, orderTotal - discount)
+                  const netSales = Math.round(finalSubtotal / 1.11)
+                  const ppnAmount = finalSubtotal - netSales
+                  const isCash = (completedOrder.paymentMethod || '').toLowerCase().includes('tunai')
+                  return (
+                    <div className="py-2 space-y-1 text-[10.5px] border-b border-dashed border-neutral-400">
+                      <div className="flex justify-between">
+                        <span>Total Inc Tax</span>
+                        <span>Rp {orderTotal.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-600">
+                        <span>Voucher Discount</span>
+                        <span>Rp {discount.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-black pt-0.5">
+                        <span>SUBTOTAL</span>
+                        <span>Rp {finalSubtotal.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-600 pt-1 border-t border-dotted border-neutral-300">
+                        <span>Net Sales</span>
+                        <span>Rp {netSales.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-600">
+                        <span>PPN 11%</span>
+                        <span>Rp {ppnAmount.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between items-center font-bold text-black pt-1 border-t border-dotted border-neutral-300">
+                        <span>{completedOrder.paymentMethod}</span>
+                        <span>Rp {finalSubtotal.toLocaleString('id-ID')}</span>
+                      </div>
+                      {isCash && completedOrder.cashTendered != null && (
+                        <div className="flex justify-between text-neutral-700">
+                          <span>Tunai Diterima</span>
+                          <span>Rp {Number(completedOrder.cashTendered).toLocaleString('id-ID')}</span>
+                        </div>
+                      )}
+                      {isCash && completedOrder.change != null && (
+                        <div className="flex justify-between font-bold text-black">
+                          <span>KEMBALIAN</span>
+                          <span>Rp {Number(completedOrder.change).toLocaleString('id-ID')}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-1">
+                        <span>Status</span>
+                        <span className="px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-wider border border-black text-black bg-neutral-100">
+                          LUNAS / PAID
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[9.5px] text-neutral-500 font-mono">
+                        <span>Ref Transaksi:</span>
+                        <span>TRX-JM-{completedOrder.orderCode}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Loyalty Point */}
+                <div className="py-2 text-center space-y-0.5 border-b border-dashed border-neutral-400">
+                  <p className="text-[10px] font-bold text-black">
+                    Dapatkan {completedOrder.pointsEarned ?? Math.floor(completedOrder.total / 1000)} Poin Melati untuk transaksi ini!
+                  </p>
+                  {completedOrder.pointsEarned > 0 && completedOrder.currentPoints != null && (
+                    <p className="text-[9.5px] text-neutral-600">
+                      Total Poin Member: <span className="font-bold">{completedOrder.currentPoints} Poin</span>
+                    </p>
+                  )}
+                  <p className="text-[9px] text-neutral-600 italic">
+                    Tunjukkan struk digital ini ke Barista untuk klaim poin member.
+                  </p>
+                </div>
+
+                {/* Footer */}
+                <div className="pt-2 text-center space-y-0.5">
+                  <h4 className="font-bold text-xs tracking-wide text-black uppercase">
+                    Terima kasih
+                  </h4>
+                  <p className="text-[9.5px] italic font-serif text-neutral-800">
+                    &lsquo;Nikmati jeda teh terbaik Anda bersama Justmine Tea&rsquo;
+                  </p>
+                  <p className="text-[8px] tracking-widest text-neutral-400 uppercase pt-1">
+                    MADE FROM AUTHENTIC BOTANICAL HARVEST
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tombol Aksi Bawah */}
+            <div className="p-3 sm:p-4 bg-surface border-t border-border flex flex-col gap-2 shrink-0">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-2.5 px-3 rounded-xl bg-surface border border-border hover:bg-background text-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[18px]">print</span>
+                  <span>Cetak Struk (Thermal)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sendWhatsAppReceipt(completedOrder)}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chat</span>
+                  <span>Kirim WhatsApp</span>
+                </button>
+              </div>
               <button
+                type="button"
                 onClick={handleNewTransaction}
-                className="w-full py-3 px-4 rounded-xl bg-sage hover:bg-sage-dark text-white font-extrabold text-sm shadow-md transition-colors mt-1"
+                className="w-full py-2.5 px-4 rounded-xl bg-sage hover:bg-sage-dark text-white font-extrabold text-xs sm:text-sm shadow-md transition-colors flex items-center justify-center gap-1.5"
               >
-                Transaksi Baru ➔
+                <span>Transaksi Baru</span>
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
           </div>
@@ -1557,7 +1792,9 @@ export default function PosAdmin() {
               </div>
               <div className="flex justify-between items-center">
                 <span>Atas Nama  :</span>
-                <span className="font-bold">{completedOrder.customerName || 'Pelanggan'}</span>
+                <span className="font-bold">
+                  {completedOrder.customerName && completedOrder.customerName !== 'Pelanggan' ? completedOrder.customerName : 'Guest'}
+                </span>
               </div>
             </div>
 
