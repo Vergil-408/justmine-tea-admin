@@ -4,7 +4,7 @@ import TopNav from '../components/TopNav.jsx'
 import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import { useOrderAlerts, loadSoundPref, saveSoundPref } from '../hooks/useOrderAlerts.js'
 import { playChime } from '../utils/chime.js'
-import { formatItemOptions, getItemCustomizationDetails } from '../utils/options.js'
+import { formatItemOptions, getItemCustomizationDetails, getItemOptionLines } from '../utils/options.js'
 
 const TABS = [
   { key: 'aktif', label: 'Aktif' },
@@ -382,8 +382,9 @@ export default function Orders() {
                   <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-ink-muted">
                     <span>{formatTime(order.createdAt)}</span>
                     {order.status !== 'selesai' && order.status !== 'dibatalkan' && (
-                      <span className="px-1.5 py-0.2 rounded bg-surface-muted text-ink font-semibold">
-                        ⏱️ {timeAgo(order.createdAt)}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-muted text-ink font-semibold">
+                        <span className="material-symbols-outlined text-[13px] text-sage-dark">schedule</span>
+                        <span>{timeAgo(order.createdAt)}</span>
                       </span>
                     )}
                   </div>
@@ -404,8 +405,11 @@ export default function Orders() {
                 <span className="px-2 py-0.5 rounded-full bg-background border border-border">
                   {order.paymentMethod || '—'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-background border border-border">
-                  {order.userId ? '👤 Member' : '🧑 Tamu'}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-background border border-border">
+                  <span className="material-symbols-outlined text-[13px] text-sage-dark">
+                    {order.userId ? 'workspace_premium' : 'person'}
+                  </span>
+                  <span>{order.userId ? 'Member' : 'Tamu'}</span>
                 </span>
                 {order.tableNumber && (
                   <span className="px-2 py-0.5 rounded-full bg-sage-light text-sage-dark font-bold">

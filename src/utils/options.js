@@ -249,6 +249,64 @@ export function formatItemOptions(item) {
   return ''
 }
 
+// Mengekstrak daftar baris kustomisasi item (Fore Coffee style) untuk struk, keranjang, dan rincian pesanan
+export function getItemOptionLines(item) {
+  if (!item) return []
+  const formatRp = (n) => `Rp${Number(n || 0).toLocaleString('id-ID')}`
+  const lines = []
+
+  // 1. Paket Bundling
+  if (item.isBundle && Array.isArray(item.bundleSlots)) {
+    item.bundleSlots.forEach((slot, idx) => {
+      const title = slot.drinkName || `Cup ${idx + 1}`
+      lines.push(`${slot.slotTitle || `Cup ${idx + 1}`}: ${title}`)
+      if (slot.sugarLabel) lines.push(`• ${slot.sugarLabel}`)
+      if (slot.iceLabel) lines.push(`• ${slot.iceLabel}`)
+      if (slot.toppingLabel) lines.push(`• ${slot.toppingLabel}${slot.toppingPrice ? ` (+${formatRp(slot.toppingPrice)})` : ''}`)
+      if (slot.note) lines.push(`• Catatan: "${slot.note}"`)
+    })
+    return lines
+  }
+
+  // 2. Snapshot modern selectedOptions
+  if (Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
+    for (const opt of item.selectedOptions) {
+      if (!opt) continue
+      const rawText = (opt.choiceLabel || opt.summary || '').trim()
+      if (!rawText) continue
+      const cid = (opt.choiceId || '').toLowerCase()
+      const gid = (opt.groupId || '').toLowerCase()
+      const glabel = (opt.groupLabel || '').toLowerCase()
+
+      if (cid === 'note' || gid === 'catatan' || glabel.includes('catatan') || glabel.includes('note')) {
+        lines.push(`Catatan: "${rawText}"`)
+      } else if (opt.priceDelta && opt.priceDelta > 0) {
+        lines.push(`${rawText} (+${formatRp(opt.priceDelta)})`)
+      } else {
+        lines.push(rawText)
+      }
+    }
+    return lines
+  }
+
+  // 3. Format legacy detail
+  const d = item.detail
+  if (d && typeof d === 'object') {
+    if (d.sweetness) lines.push(d.sweetness)
+    if (d.ice) lines.push(d.ice)
+    if (d.milk) lines.push(`Susu: ${d.milk}`)
+    if (Array.isArray(d.toppings)) {
+      d.toppings.forEach((t) => lines.push(String(t)))
+    } else if (typeof d.toppings === 'string' && d.toppings.trim()) {
+      d.toppings.split(',').forEach((t) => lines.push(t.trim()))
+    }
+    if (d.note) lines.push(`Catatan: "${d.note}"`)
+    return lines
+  }
+
+  return lines
+}
+
 // Mengekstrak rincian kustomisasi item (kadar es, tingkat manis, topping/add-on, catatan)
 // menjadi daftar badge rapi dengan icon & styling yang mudah dibaca barista/kasir.
 export function getItemCustomizationDetails(item) {
