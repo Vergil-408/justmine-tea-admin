@@ -196,8 +196,65 @@ export default function PosAdmin() {
       return
     }
 
+    // Bangun effective resolved: gabung resolved + toppingGroup jika fallback
+    // agar buildSelectedOptions bisa menemukan topping yang dipilih
+    const isFoodOrSweetsSave = isFoodCategory(customizingItem)
+    const isNoToppingSave = isFoodOrSweetsSave || isSignatureCategory(customizingItem.category)
+    const resolvedToppingGroup = !isNoToppingSave
+      ? resolved.find((g) => g.id === 'topping' || g.id === 'topping_tea' || g.type === 'multi')
+      : null
+
+    // Jika toppingGroup tidak ada di resolved (bisa terjadi jika menu tidak punya optionGroupIds),
+    // hitung toppingDelta manual dari fallback lalu tambahkan ke selectedOptions
+    const fallbackToppingGroup = !isNoToppingSave && !resolvedToppingGroup
+      ? {
+          id: 'topping',
+          label: 'Topping Tambahan',
+          type: 'multi',
+          choices: [
+            { id: 'top-boba', label: 'Pearl / Boba', priceDelta: 3000 },
+            { id: 'top-grass', label: 'Grass Jelly', priceDelta: 3000 },
+            { id: 'top-nata', label: 'Nata de Coco', priceDelta: 3000 },
+            { id: 'top-aloe', label: 'Aloe Vera', priceDelta: 4000 },
+          ],
+        }
+      : null
+
+    const effectiveTopping = resolvedToppingGroup || fallbackToppingGroup
     const selectedOptions = buildSelectedOptions(resolved, customSelection)
-    const unitPrice = computeUnitPrice(customizingItem, selectedOptions)
+
+    // Tambah topping ke selectedOptions secara manual jika pakai fallback
+    if (fallbackToppingGroup && Array.isArray(customSelection[fallbackToppingGroup.id])) {
+      for (const tid of customSelection[fallbackToppingGroup.id]) {
+        const c = fallbackToppingGroup.choices.find((ch) => ch.id === tid)
+        if (c) {
+          selectedOptions.push({
+            groupId: 'topping',
+            groupLabel: 'Topping Tambahan',
+            choiceId: c.id,
+            choiceLabel: c.label,
+            priceDelta: c.priceDelta || 0,
+          })
+        }
+      }
+    }
+
+    // Jika topping resolved, tapi choices berbeda dengan UI karena toppingGroup.id mismatch,
+    // hitung topping delta dari effectiveTopping group
+    const toppingDeltaForSave = effectiveTopping
+      ? (customSelection[effectiveTopping.id] || []).reduce((sum, tid) => {
+          const c = effectiveTopping.choices.find((ch) => ch.id === tid)
+          return sum + (c?.priceDelta ?? 0)
+        }, 0)
+      : 0
+
+    const basePrice = customizingItem.price || 0
+    // Jika topping dari resolved group, computeUnitPrice sudah include topping via buildSelectedOptions
+    // Jika topping dari fallback, kita hitung manual
+    const unitPrice = resolvedToppingGroup
+      ? computeUnitPrice(customizingItem, selectedOptions)
+      : basePrice + toppingDeltaForSave
+
     const k = lineKey(customizingItem.id, selectedOptions)
 
     if (editingLineKey) {
@@ -1075,9 +1132,9 @@ export default function PosAdmin() {
           return sum + (c?.priceDelta ?? 0)
         }, 0)
         const basePrice = customizingItem.price || 0
-        // Fix: hitung dari SEMUA selectedOptions, bukan cuma topping
-        const previewOptions = buildSelectedOptions(resolved, customSelection)
-        const modalUnitPrice = computeUnitPrice(customizingItem, previewOptions)
+        // Hitung harga: base price + topping delta (dari toppingGroup.choices yang sudah terresolved)
+        // Tidak pakai buildSelectedOptions/computeUnitPrice karena bisa tidak sinkron dengan toppingGroup fallback
+        const modalUnitPrice = basePrice + toppingDelta
         const modalGrandTotal = modalUnitPrice * customQty
 
         return (
