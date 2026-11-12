@@ -19,7 +19,9 @@ const emptyForm = {
   desc: '',
   itemType: 'drink', // 'drink' | 'food'
   category: 'Signature Tea',
+  subcategory: '',
   price: '',
+  stock: '',
   tag: '',
   inStock: true,
   imageUrl: null,
@@ -29,7 +31,7 @@ function rupiah(n) {
   return `Rp${Number(n || 0).toLocaleString('id-ID')}`
 }
 
-const DEFAULT_DRINK_CATEGORIES = [
+const DRINK_CATEGORIES = [
   'Signature Tea',
   'Tropical',
   'Classic Tea',
@@ -39,7 +41,7 @@ const DEFAULT_DRINK_CATEGORIES = [
   'Paket Promo',
 ]
 
-const DEFAULT_FOOD_CATEGORIES = [
+const FOOD_CATEGORIES = [
   'Main Course',
   'Snacks',
   'Dessert',
@@ -47,6 +49,26 @@ const DEFAULT_FOOD_CATEGORIES = [
   'Paket Promo',
   'Combo',
 ]
+
+// Subkategori per kategori
+const SUBCATEGORIES = {
+  'Signature Tea': ['Original', 'Lychee', 'Jasmine', 'Matcha', 'Oolong'],
+  'Tropical': ['Mangga', 'Nanas', 'Passion Fruit', 'Coconut'],
+  'Classic Tea': ['Green Tea', 'Black Tea', 'Chamomile', 'Earl Grey'],
+  'Fruit Tea': ['Lemon', 'Strawberry', 'Peach', 'Watermelon'],
+  'Milk Tea': ['Brown Sugar', 'Taro', 'Thai Tea', 'Oat Milk'],
+  'Coffee Series': ['Americano', 'Latte', 'Cappuccino', 'Cold Brew'],
+  'Main Course': ['Nasi', 'Mie', 'Pasta'],
+  'Snacks': ['Goreng', 'Bakar', 'Rebus'],
+  'Dessert': ['Ice Cream', 'Pudding', 'Cake'],
+  'Pastry & Bakery': ['Roti', 'Croissant', 'Muffin'],
+  'Paket Promo': [],
+  'Combo': [],
+}
+
+// legacy compat
+const DEFAULT_DRINK_CATEGORIES = DRINK_CATEGORIES
+const DEFAULT_FOOD_CATEGORIES = FOOD_CATEGORIES
 
 export default function MenuAdmin() {
   const [items, setItems] = useState([])
@@ -127,7 +149,9 @@ export default function MenuAdmin() {
       desc: item.desc || '',
       itemType: resolvedType,
       category: item.category || (resolvedType === 'food' ? 'Snacks' : 'Signature Tea'),
+      subcategory: item.subcategory || '',
       price: getBasePrice(item),
+      stock: item.stock ?? '',
       tag: item.tag || '',
       inStock: item.inStock !== false,
       imageUrl: item.imageUrl ?? null,
@@ -149,10 +173,12 @@ export default function MenuAdmin() {
       name: form.name.trim(),
       desc: form.desc.trim(),
       itemType: form.itemType, // 'drink' | 'food'
-      category: form.category.trim(), // Nama kategori bebas (Paket, Promo, Signature, dll.)
+      category: form.category.trim(),
+      subcategory: (form.subcategory || '').trim() || null,
       inStock: form.inStock,
       tag: form.tag.trim() || null,
       price: Number(form.price),
+      stock: form.stock !== '' ? Number(form.stock) : null,
       basePrice: null, // field lama
     }
     try {
@@ -228,183 +254,305 @@ export default function MenuAdmin() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-          {/* Form tambah/edit */}
-          <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-2xl p-5 h-fit">
-            <h2 className="font-bold text-sm mb-4">{editingId ? 'Edit Menu' : 'Tambah Menu Baru'}</h2>
-
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Nama</label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full mb-3 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              placeholder="Jasmine Pure Tea"
-            />
-
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Deskripsi</label>
-            <textarea
-              value={form.desc}
-              onChange={(e) => setForm({ ...form, desc: e.target.value })}
-              className="w-full mb-3 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              rows={2}
-              placeholder="Deskripsi singkat menu..."
-            />
-
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Foto (opsional)</label>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-24 aspect-[4/3] rounded-lg border border-border bg-background overflow-hidden flex items-center justify-center text-ink-muted text-[10px] text-center shrink-0">
-                {form.imageUrl ? (
-                  <img src={form.imageUrl} alt="Pratinjau foto menu" className="w-full h-full object-cover" />
-                ) : (
-                  'Belum ada foto'
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5 min-w-0">
-                <label className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-sage-light cursor-pointer text-center">
-                  {imageBusy ? 'Memproses...' : form.imageUrl ? 'Ganti foto' : 'Pilih foto'}
-                  <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
-                </label>
-                {form.imageUrl && (
-                  <button type="button" onClick={removeImage} className="text-[11px] text-ink-muted hover:text-danger text-left">
-                    Hapus foto
-                  </button>
-                )}
-                {imageInfo && <span className="text-[10px] text-ink-muted">{imageInfo}</span>}
-              </div>
-            </div>
-            <p className="text-[10px] text-ink-muted -mt-1 mb-3">
-              Foto otomatis dipotong rasio 4:3 dan dikecilkan supaya muat di database.
-            </p>
-
-            {/* Pilihan Jenis Menu (Drink vs Food) */}
-            <label className="block text-xs font-semibold text-ink-muted mb-1.5">
-              Jenis Menu
-            </label>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setForm((f) => ({
-                    ...f,
-                    itemType: 'drink',
-                    category:
-                      f.itemType === 'food' &&
-                      ['snacks', 'main course', 'food', 'dessert'].includes(f.category.toLowerCase())
-                        ? 'Signature Tea'
-                        : f.category,
-                  }))
-                }}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  form.itemType === 'drink'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-background border-border text-ink-muted hover:border-emerald-600 hover:text-ink'
-                }`}
-              >
-                <span>🍵</span>
-                <span>Minuman (Drink)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setForm((f) => ({
-                    ...f,
-                    itemType: 'food',
-                    category:
-                      f.itemType === 'drink' &&
-                      ['signature', 'signature tea', 'classic', 'classic tea', 'tropical', 'drinks'].includes(
-                        f.category.toLowerCase()
-                      )
-                        ? 'Snacks'
-                        : f.category,
-                  }))
-                }}
-                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                  form.itemType === 'food'
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                    : 'bg-background border-border text-ink-muted hover:border-amber-600 hover:text-ink'
-                }`}
-              >
-                <span>🍛</span>
-                <span>Makanan (Food)</span>
-              </button>
+          {/* ===== FORM TAMBAH / EDIT MENU ===== */}
+          <form onSubmit={handleSubmit} className="bg-white border border-slate-200/80 rounded-2xl shadow-xs h-fit overflow-visible">
+            {/* Header Form */}
+            <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+              <h2 className="font-extrabold text-sm text-slate-900">
+                {editingId ? '✏️ Edit Menu' : '+ Tambah Menu Baru'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {editingId ? 'Perbarui data item menu.' : 'Isi informasi menu baru.'}
+              </p>
             </div>
 
-            <label className="block text-xs font-semibold text-ink-muted mb-1">
-              Kategori / Sub-kategori Menu
-            </label>
-            <input
-              type="text"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              className="w-full mb-1.5 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              placeholder="Contoh: Signature Tea, Tropical, Snacks, Main Course, Promo, Paket..."
-              required
-            />
-            {suggestedCategories.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                <span className="text-[11px] text-ink-muted">Pilih cepat:</span>
-                {suggestedCategories.map((c) => (
-                  <button
-                    type="button"
-                    key={c}
-                    onClick={() => setForm({ ...form, category: c })}
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all ${
-                      form.category?.toLowerCase() === c.toLowerCase()
-                        ? 'bg-sage text-white border-sage'
-                        : 'bg-surface border-border text-ink-muted hover:border-sage hover:text-ink'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="px-5 py-4 space-y-5">
+              {/* ── Bagian 1: Informasi Produk ── */}
+              <fieldset>
+                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Informasi Produk
+                </legend>
+                <div className="space-y-3">
+                  {/* Upload Foto (Dropzone Style sesuai Mockup) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Foto Menu</label>
+                    {form.imageUrl ? (
+                      <div className="relative rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 p-2 flex items-center gap-3">
+                        <img src={form.imageUrl} alt="Preview" className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">Foto terpasang</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{imageInfo || 'Siap disimpan'}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <label className="text-[11px] font-bold text-[#124734] hover:underline cursor-pointer">
+                              Ganti Foto
+                              <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
+                            </label>
+                            <span className="text-slate-300">•</span>
+                            <button type="button" onClick={removeImage} className="text-[11px] font-bold text-red-500 hover:underline">
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer?.files?.[0];
+                          if (file) {
+                            handlePickImage({ target: { files: [file], value: '' } });
+                          }
+                        }}
+                        className="border-2 border-dashed border-emerald-200/80 hover:border-emerald-600 rounded-2xl p-4 bg-emerald-50/20 hover:bg-emerald-50/40 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
+                      >
+                        <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                          <span className="material-symbols-outlined text-[22px]">add_photo_alternate</span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-800">
+                          {imageBusy ? 'Memproses...' : 'Upload Foto'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop atau klik untuk memilih file</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG (maks. 2MB)</p>
+                      </label>
+                    )}
+                  </div>
 
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Harga dasar (Rp)</label>
-            <input
-              type="number"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              className="w-full mb-3 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              placeholder="22000"
-            />
+                  {/* Nama Menu */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Nama Menu <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
+                      placeholder="Contoh: Matcha Latte"
+                      required
+                    />
+                  </div>
 
-            <label className="block text-xs font-semibold text-ink-muted mb-1">Tag (opsional)</label>
-            <input
-              value={form.tag}
-              onChange={(e) => setForm({ ...form, tag: e.target.value })}
-              className="w-full mb-3 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sage"
-              placeholder="Limited / Seasonal (boleh kosong)"
-            />
+                  {/* Deskripsi dengan Counter 0/200 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700">Deskripsi</label>
+                      <span className="text-[10px] font-medium text-slate-400">{form.desc.length}/200</span>
+                    </div>
+                    <textarea
+                      value={form.desc}
+                      maxLength={200}
+                      onChange={(e) => setForm({ ...form, desc: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors resize-none"
+                      rows={2}
+                      placeholder="Deskripsi singkat menu..."
+                    />
+                  </div>
 
-            <label className="flex items-center gap-2 mb-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.inStock}
-                onChange={(e) => setForm({ ...form, inStock: e.target.checked })}
-              />
-              Stok tersedia
-            </label>
-            <p className="text-[11px] text-ink-muted mb-4">
-              Es, gula, topping, dan opsi lain diatur di halaman <Link to="/kustom" className="underline font-semibold">Kustom Menu</Link>.
-            </p>
+                  {/* Tag */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tag (Opsional)</label>
+                    <input
+                      value={form.tag}
+                      onChange={(e) => setForm({ ...form, tag: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
+                      placeholder="Limited, New, Best Seller"
+                    />
+                  </div>
+                </div>
+              </fieldset>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 bg-sage text-white font-semibold text-sm py-2.5 rounded-xl hover:bg-sage-dark transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Tambah Menu'}
-              </button>
+              <div className="border-t border-slate-100" />
+
+              {/* ── Bagian 2: Jenis & Kategori ── */}
+              <fieldset>
+                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Jenis & Kategori
+                </legend>
+                <div className="space-y-3">
+                  {/* Jenis Menu — Segmented Button */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Jenis Menu</label>
+                    <div className="inline-flex w-full border border-slate-200 rounded-xl overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          itemType: 'drink',
+                          category: f.itemType === 'food' ? 'Signature Tea' : f.category,
+                          subcategory: '',
+                        }))}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all ${
+                          form.itemType === 'drink'
+                            ? 'bg-[#124734] text-white'
+                            : 'bg-white text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>🍵</span><span>Minuman</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({
+                          ...f,
+                          itemType: 'food',
+                          category: f.itemType === 'drink' ? 'Snacks' : f.category,
+                          subcategory: '',
+                        }))}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all border-l border-slate-200 ${
+                          form.itemType === 'food'
+                            ? 'bg-amber-600 text-white border-amber-600'
+                            : 'bg-white text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>🍛</span><span>Makanan</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Kategori — Dropdown */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Kategori <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value, subcategory: '' })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors appearance-none cursor-pointer"
+                      required
+                    >
+                      {(form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES).map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      {/* Kategori custom dari database yang belum ada di default */}
+                      {suggestedCategories
+                        .filter((c) => !(form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES).includes(c))
+                        .map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Subkategori — Dropdown (opsional, mengikuti kategori) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subkategori</label>
+                    <select
+                      value={form.subcategory || ''}
+                      onChange={(e) => setForm({ ...form, subcategory: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="">— Pilih subkategori (opsional) —</option>
+                      {(SUBCATEGORIES[form.category] || []).map((sub) => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="border-t border-slate-100" />
+
+              {/* ── Bagian 3: Harga & Stok ── */}
+              <fieldset>
+                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Harga & Stok
+                </legend>
+                <div className="space-y-3">
+                  {/* Grid Harga & Stok Berdampingan sesuai Mockup */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Harga */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Harga <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={form.price}
+                          onChange={(e) => setForm({ ...form, price: e.target.value })}
+                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
+                          placeholder="0"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stok */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Stok (Opsional)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={form.stock ?? ''}
+                        onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
+                        placeholder="Contoh: 100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Toggle Ketersediaan Menu */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status Menu</label>
+                    <div className="flex items-center gap-3 py-2">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={form.inStock}
+                        onClick={() => setForm((f) => ({ ...f, inStock: !f.inStock }))}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          form.inStock ? 'bg-[#124734]' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            form.inStock ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-xs font-bold text-slate-700">
+                        {form.inStock ? 'Menu Aktif' : 'Menu Nonaktif (Draft)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            {/* Footer CTA */}
+            <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex gap-2">
               {editingId && (
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-ink-muted"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Batal
                 </button>
               )}
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={saving}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[15px]">refresh</span>
+                Reset
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-xs"
+              >
+                {saving ? (
+                  <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                ) : (
+                  <span className="material-symbols-outlined text-[15px]">save</span>
+                )}
+                <span>{saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Simpan'}</span>
+              </button>
             </div>
           </form>
 
