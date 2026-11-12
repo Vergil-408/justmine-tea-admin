@@ -38,6 +38,13 @@ export async function updateOrderStatus(orderId, newStatus) {
   await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
 }
 
+/**
+ * Ubah detail pesanan (misal nomor meja, catatan, nama pelanggan, dll).
+ */
+export async function updateOrderDetails(orderId, updates) {
+  await updateDoc(doc(db, 'orders', orderId), updates)
+}
+
 /** Kasir menandai pesanan "Bayar di Kasir" sudah dibayar. (Pembayaran QRIS ditandai otomatis oleh server.) */
 export async function markOrderPaid(orderId) {
   await updateDoc(doc(db, 'orders', orderId), { paymentStatus: 'dibayar', paidAt: serverTimestamp() })

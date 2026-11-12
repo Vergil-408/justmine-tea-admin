@@ -758,27 +758,126 @@ export function getItemCustomizationDetails(item) {
     })
   }
 
-  // 6. Default standard badges untuk menu minuman jika belum memiliki kustomisasi khusus di database
-  const isFood = isFoodCategory(item)
+  // 6. Tidak ada default buatan jika pelanggan tidak memilih opsi kustomisasi
+  return badges
+}
 
-  if (badges.length === 0 && !item?.isBundle && !isFood) {
-    badges.push({
-      type: 'ice',
-      label: 'Normal Ice',
-      icon: 'ac_unit',
-      bgClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
-      iconColor: 'text-sky-600',
-    })
-    badges.push({
-      type: 'sugar',
-      label: 'Normal (100%)',
-      icon: 'water_drop',
-      bgClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
-      iconColor: 'text-amber-600',
+/**
+ * Mengambil spesifikasi minuman (Level Es, Tingkat Manis, Topping, Ukuran, Susu, Catatan)
+ * MURNI dari data pesanan yang tersimpan di sistem TANPA membuat default buatan.
+ * @param {object} item
+ * @returns {Array<{ key: string, label: string, value: string, icon: string } | { isSlot: boolean, slotTitle: string, drinkName: string, specs: Array }>}
+ */
+export function getDrinkSpecifications(item) {
+  if (!item) return []
+
+  // 1. Paket Bundling
+  if (item.isBundle && Array.isArray(item.bundleSlots)) {
+    return item.bundleSlots.map((slot, idx) => {
+      const specs = []
+      if (slot.size || slot.sizeLabel) {
+        specs.push({ key: 'size', label: 'Ukuran', value: slot.sizeLabel || slot.size, icon: 'crop_square' })
+      }
+      if (slot.ice || slot.iceLabel) {
+        specs.push({ key: 'ice', label: 'Level Es', value: slot.iceLabel || slot.ice, icon: 'ac_unit' })
+      }
+      if (slot.sugar || slot.sugarLabel) {
+        specs.push({ key: 'sugar', label: 'Tingkat Manis', value: slot.sugarLabel || slot.sugar, icon: 'water_drop' })
+      }
+      if (slot.topping || slot.toppingLabel) {
+        specs.push({ key: 'topping', label: 'Topping', value: slot.toppingLabel || slot.topping, icon: 'radio_button_checked' })
+      }
+      if (slot.milk || slot.milkLabel) {
+        specs.push({ key: 'milk', label: 'Pilihan Susu', value: slot.milkLabel || slot.milk, icon: 'local_cafe' })
+      }
+      if (slot.note) {
+        specs.push({ key: 'note', label: 'Catatan', value: slot.note, icon: 'edit_note' })
+      }
+      return {
+        isSlot: true,
+        slotTitle: slot.slotTitle || `Cup ${idx + 1}`,
+        drinkName: slot.drinkName || `Minuman ${idx + 1}`,
+        specs,
+      }
     })
   }
 
-  return badges
+  const specs = []
+
+  // 2. Snapshot selectedOptions
+  if (Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
+    for (const opt of item.selectedOptions) {
+      if (!opt) continue
+      const gid = (opt.groupId || '').toLowerCase()
+      const glabel = (opt.groupLabel || '').toLowerCase()
+      const cid = (opt.choiceId || '').toLowerCase()
+      const val = (opt.choiceLabel || opt.summary || '').trim()
+      if (!val) continue
+
+      if (gid === 'es' || gid.includes('ice') || glabel.includes('es') || glabel.includes('ice') || cid.includes('ice')) {
+        specs.push({ key: 'ice', label: 'Level Es', value: val, icon: 'ac_unit' })
+      } else if (gid === 'gula' || gid.includes('sugar') || glabel.includes('gula') || glabel.includes('manis') || glabel.includes('sugar') || cid.includes('sugar')) {
+        specs.push({ key: 'sugar', label: 'Tingkat Manis', value: val, icon: 'water_drop' })
+      } else if (gid === 'topping' || gid.includes('addon') || glabel.includes('topping') || glabel.includes('add-on') || glabel.includes('tambahan') || cid.includes('top')) {
+        specs.push({ key: 'topping', label: 'Topping', value: val, icon: 'radio_button_checked' })
+      } else if (gid === 'size' || gid.includes('ukuran') || glabel.includes('ukuran') || glabel.includes('size')) {
+        specs.push({ key: 'size', label: 'Ukuran', value: val, icon: 'crop_square' })
+      } else if (gid === 'susu' || glabel.includes('susu') || glabel.includes('milk')) {
+        specs.push({ key: 'milk', label: 'Pilihan Susu', value: val, icon: 'local_cafe' })
+      } else if (cid === 'note' || gid === 'catatan' || glabel.includes('catatan') || glabel.includes('note')) {
+        specs.push({ key: 'note', label: 'Catatan', value: val, icon: 'edit_note' })
+      } else {
+        specs.push({ key: 'other', label: opt.groupLabel || 'Opsi', value: val, icon: 'tune' })
+      }
+    }
+    return specs
+  }
+
+  // 3. Format legacy/objek "detail"
+  const d = item.detail
+  if (d && typeof d === 'object') {
+    if (d.size) specs.push({ key: 'size', label: 'Ukuran', value: d.size, icon: 'crop_square' })
+    if (d.ice) specs.push({ key: 'ice', label: 'Level Es', value: d.ice, icon: 'ac_unit' })
+    if (d.sweetness) specs.push({ key: 'sugar', label: 'Tingkat Manis', value: d.sweetness, icon: 'water_drop' })
+    if (Array.isArray(d.toppings) && d.toppings.length > 0) {
+      specs.push({ key: 'topping', label: 'Topping', value: d.toppings.join(', '), icon: 'radio_button_checked' })
+    } else if (typeof d.toppings === 'string' && d.toppings.trim()) {
+      specs.push({ key: 'topping', label: 'Topping', value: d.toppings.trim(), icon: 'radio_button_checked' })
+    }
+    if (d.milk) specs.push({ key: 'milk', label: 'Pilihan Susu', value: d.milk, icon: 'local_cafe' })
+    if (d.note) specs.push({ key: 'note', label: 'Catatan', value: d.note, icon: 'edit_note' })
+    if (specs.length > 0) return specs
+  }
+
+  // 4. Properti langsung pada item (jika ada)
+  if (item.size) specs.push({ key: 'size', label: 'Ukuran', value: String(item.size).trim(), icon: 'crop_square' })
+  const ice = item.iceLevel || item.ice
+  if (ice && typeof ice === 'string' && ice.trim()) {
+    specs.push({ key: 'ice', label: 'Level Es', value: ice.trim(), icon: 'ac_unit' })
+  }
+  const sugar = item.sugarLevel || item.sweetness || item.sugar
+  if (sugar && typeof sugar === 'string' && sugar.trim()) {
+    specs.push({ key: 'sugar', label: 'Tingkat Manis', value: sugar.trim(), icon: 'water_drop' })
+  }
+  const toppings = item.toppings || item.addons || item.topping
+  if (Array.isArray(toppings) && toppings.length > 0) {
+    const list = toppings.map((t) => (typeof t === 'object' ? t.label || t.name : t)).filter(Boolean)
+    if (list.length > 0) {
+      specs.push({ key: 'topping', label: 'Topping', value: list.join(', '), icon: 'radio_button_checked' })
+    }
+  } else if (typeof toppings === 'string' && toppings.trim()) {
+    specs.push({ key: 'topping', label: 'Topping', value: toppings.trim(), icon: 'radio_button_checked' })
+  }
+  const milk = item.milk
+  if (milk && typeof milk === 'string' && milk.trim()) {
+    specs.push({ key: 'milk', label: 'Pilihan Susu', value: milk.trim(), icon: 'local_cafe' })
+  }
+  const note = item.note || item.notes || item.catatan
+  if (note && typeof note === 'string' && note.trim()) {
+    specs.push({ key: 'note', label: 'Catatan', value: note.trim(), icon: 'edit_note' })
+  }
+
+  return specs
 }
 
 
