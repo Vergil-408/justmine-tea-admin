@@ -575,8 +575,7 @@ export default function Orders() {
                                   </p>
                                   <div className="space-y-0.5 text-slate-600">
                                     {(slotData.specs || []).map((sp, spIdx) => (
-                                      <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
-                                        <span className="material-symbols-outlined text-[13px] text-slate-400">{sp.icon}</span>
+                                      <div key={spIdx} className="flex items-center gap-1 text-[11px]">
                                         <span className="font-semibold text-slate-600">{sp.label}:</span>
                                         <span className="text-slate-900">{sp.value}</span>
                                       </div>
@@ -590,7 +589,6 @@ export default function Orders() {
                               <div className="mt-1 space-y-0.5">
                                 {specs.map((sp, spIdx) => (
                                   <div key={spIdx} className="flex items-center gap-1.5 text-xs">
-                                    <span className="material-symbols-outlined text-[14px] text-slate-400">{sp.icon}</span>
                                     <span className="font-medium text-slate-500">{sp.label}:</span>
                                     <span className="font-semibold text-slate-900">{sp.value}</span>
                                   </div>
@@ -850,7 +848,6 @@ function OrderDetailModal({
                         <div className="mt-1 space-y-0.5 text-xs">
                           {specs.map((sp, spIdx) => (
                             <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
-                              <span className="material-symbols-outlined text-[13px] text-slate-400">{sp.icon}</span>
                               <span className="font-semibold text-slate-600">{sp.label}:</span>
                               <span className="text-slate-900 font-medium">{sp.value}</span>
                             </div>
