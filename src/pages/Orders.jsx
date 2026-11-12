@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listenToAllOrders, updateOrderStatus, deleteOrder, markOrderPaid, updateOrderDetails } from '../api/orders.js'
-import { listenToMenuItemsAdmin } from '../api/menu.js'
 import TopNav from '../components/TopNav.jsx'
 import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import { useOrderAlerts, loadSoundPref, saveSoundPref } from '../hooks/useOrderAlerts.js'
@@ -82,10 +81,9 @@ function timeAgo(ts) {
 
 export default function Orders() {
   const [orders, setOrders] = useState([])
-  const [menuItems, setMenuItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('aktif')
-  const [dateFilter, setDateFilter] = useState('today') // 'today', 'all'
+  const [dateFilter, setDateFilter] = useState('today')
   const { isOwner } = useAdminAuth()
   const [soundOn, setSoundOn] = useState(loadSoundPref)
 
@@ -98,35 +96,10 @@ export default function Orders() {
       setOrders(data)
       setLoading(false)
     })
-    const unsubMenu = listenToMenuItemsAdmin((items) => {
-      setMenuItems(items)
-    })
     return () => {
       unsubOrders()
-      unsubMenu()
     }
   }, [])
-
-  // Map gambar menu dari menuItems (by id dan by nama)
-  const menuImageMap = useMemo(() => {
-    const map = new Map()
-    menuItems.forEach((m) => {
-      if (m.id && m.image) map.set(m.id, m.image)
-      if (m.name && m.image) map.set(m.name.toLowerCase().trim(), m.image)
-    })
-    return map
-  }, [menuItems])
-
-  const getItemImage = (it) => {
-    if (it.image) return it.image
-    if (it.imageUrl) return it.imageUrl
-    if (it.id && menuImageMap.has(it.id)) return menuImageMap.get(it.id)
-    if (it.menuId && menuImageMap.has(it.menuId)) return menuImageMap.get(it.menuId)
-    if (it.name && menuImageMap.has(it.name.toLowerCase().trim())) {
-      return menuImageMap.get(it.name.toLowerCase().trim())
-    }
-    return ''
-  }
 
   const { alert, dismiss, permission, askPermission } = useOrderAlerts(orders, !loading, soundOn)
 
@@ -574,85 +547,57 @@ export default function Orders() {
                   {/* Row 3: Daftar Minuman & Detail Customization */}
                   <div className="border-t border-slate-100 pt-3 space-y-4">
                     {(order.items || []).map((it, itIdx) => {
-                      const image = getItemImage(it)
                       const specs = getDrinkSpecifications(it)
                       const itemTotal = (it.price || 0) * (it.qty || 1)
 
                       return (
                         <div
                           key={itIdx}
-                          className={`${itIdx > 0 ? 'pt-3 border-t border-dashed border-slate-200' : ''}`}
+                          className={`${itIdx > 0 ? 'pt-2.5 border-t border-dashed border-slate-200' : ''}`}
                         >
-                          <div className="flex items-start gap-3">
-                            {/* Thumbnail Gambar Minuman */}
-                            <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                              {image ? (
-                                <img
-                                  src={image}
-                                  alt={it.name}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                    e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                                  }}
-                                />
-                              ) : null}
-                              <span className={`material-symbols-outlined text-emerald-700 text-2xl ${image ? 'hidden' : ''}`}>
-                                local_cafe
-                              </span>
-                            </div>
+                          {/* Nama & Harga */}
+                          <div className="flex items-baseline justify-between gap-2">
+                            <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                              <span className="text-[#124734] font-black">{it.qty}×</span> {it.name}
+                            </h4>
+                            <span className="text-xs font-bold text-slate-900 shrink-0">
+                              {rupiah(itemTotal)}
+                            </span>
+                          </div>
 
-                            {/* Info Minuman & Detail Spesifikasi Barista */}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                                  {it.qty > 1 && <span className="text-[#124734] font-black">{it.qty}× </span>}
-                                  {it.name}
-                                </h4>
-                                <span className="text-xs font-bold text-slate-900 shrink-0">
-                                  {rupiah(itemTotal)}
-                                </span>
-                              </div>
-
-                              {/* Detail Customization Spesifikasi Barista */}
-                              {it.isBundle && Array.isArray(it.bundleSlots) ? (
-                                <div className="mt-2 space-y-2">
-                                  {specs.map((slotData, sIdx) => (
-                                    <div key={sIdx} className="bg-slate-50 rounded-lg p-2 border border-slate-200/80 text-xs">
-                                      <p className="font-bold text-[#124734] text-[11px] mb-1">
-                                        {slotData.slotTitle}: {slotData.drinkName}
-                                      </p>
-                                      <div className="space-y-0.5 text-slate-600">
-                                        {(slotData.specs || []).map((sp, spIdx) => (
-                                          <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
-                                            <span className="material-symbols-outlined text-[13px] text-slate-500">
-                                              {sp.icon}
-                                            </span>
-                                            <span className="font-semibold text-slate-700">{sp.label} :</span>
-                                            <span className="text-slate-900">{sp.value}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                specs.length > 0 && (
-                                  <div className="mt-1.5 space-y-0.5">
-                                    {specs.map((sp, spIdx) => (
-                                      <div key={spIdx} className="flex items-center gap-1.5 text-xs">
-                                        <span className="material-symbols-outlined text-[14px] text-slate-500">
-                                          {sp.icon}
-                                        </span>
-                                        <span className="font-medium text-slate-500">{sp.label} :</span>
-                                        <span className="font-semibold text-slate-900">{sp.value}</span>
+                          {/* Detail Customization Spesifikasi Barista */}
+                          {it.isBundle && Array.isArray(it.bundleSlots) ? (
+                            <div className="mt-1.5 space-y-1.5">
+                              {specs.map((slotData, sIdx) => (
+                                <div key={sIdx} className="bg-slate-50 rounded-lg p-2 border border-slate-200/80 text-xs">
+                                  <p className="font-bold text-[#124734] text-[11px] mb-1">
+                                    {slotData.slotTitle}: {slotData.drinkName}
+                                  </p>
+                                  <div className="space-y-0.5 text-slate-600">
+                                    {(slotData.specs || []).map((sp, spIdx) => (
+                                      <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
+                                        <span className="material-symbols-outlined text-[13px] text-slate-400">{sp.icon}</span>
+                                        <span className="font-semibold text-slate-600">{sp.label}:</span>
+                                        <span className="text-slate-900">{sp.value}</span>
                                       </div>
                                     ))}
                                   </div>
-                                )
-                              )}
+                                </div>
+                              ))}
                             </div>
-                          </div>
+                          ) : (
+                            specs.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {specs.map((sp, spIdx) => (
+                                  <div key={spIdx} className="flex items-center gap-1.5 text-xs">
+                                    <span className="material-symbols-outlined text-[14px] text-slate-400">{sp.icon}</span>
+                                    <span className="font-medium text-slate-500">{sp.label}:</span>
+                                    <span className="font-semibold text-slate-900">{sp.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          )}
                         </div>
                       )
                     })}
@@ -751,7 +696,6 @@ export default function Orders() {
       {detailOrder && (
         <OrderDetailModal
           order={detailOrder}
-          getItemImage={getItemImage}
           onClose={() => setDetailOrder(null)}
           onMarkPaid={() => {
             markPaid(detailOrder)
@@ -789,7 +733,6 @@ export default function Orders() {
 // -------------------------------------------------------------
 function OrderDetailModal({
   order,
-  getItemImage,
   onClose,
   onMarkPaid,
   onAdvanceReady,
@@ -871,61 +814,50 @@ function OrderDetailModal({
             </h4>
             <div className="space-y-3">
               {(order.items || []).map((it, idx) => {
-                const image = getItemImage(it)
                 const specs = getDrinkSpecifications(it)
                 const itemTotal = (it.price || 0) * (it.qty || 1)
 
                 return (
-                  <div key={idx} className="border border-slate-100 rounded-2xl p-3 bg-white flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                      {image ? (
-                        <img src={image} alt={it.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="material-symbols-outlined text-emerald-700 text-xl">local_cafe</span>
-                      )}
+                  <div key={idx} className="border border-slate-100 rounded-2xl p-3 bg-white">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-bold text-slate-900">
+                        <span className="text-[#124734] font-black">{it.qty}×</span> {it.name}
+                      </p>
+                      <span className="text-xs font-bold text-slate-900">{rupiah(itemTotal)}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-sm font-bold text-slate-900">
-                          {it.qty > 1 && <span className="text-[#124734] font-black">{it.qty}× </span>}
-                          {it.name}
-                        </p>
-                        <span className="text-xs font-bold text-slate-900">{rupiah(itemTotal)}</span>
-                      </div>
 
-                      {/* Spesifikasi Barista */}
-                      {it.isBundle && Array.isArray(it.bundleSlots) ? (
-                        <div className="mt-2 space-y-1.5">
-                          {specs.map((slotData, sIdx) => (
-                            <div key={sIdx} className="bg-slate-50 rounded-lg p-2 border border-slate-200/80 text-xs">
-                              <p className="font-bold text-[#124734] text-[11px] mb-1">
-                                {slotData.slotTitle}: {slotData.drinkName}
-                              </p>
-                              <div className="space-y-0.5 text-slate-600">
-                                {(slotData.specs || []).map((sp, spIdx) => (
-                                  <div key={spIdx} className="flex items-center gap-1 text-[11px]">
-                                    <span className="font-semibold text-slate-700">{sp.label}:</span>
-                                    <span>{sp.value}</span>
-                                  </div>
-                                ))}
-                              </div>
+                    {/* Spesifikasi Barista */}
+                    {it.isBundle && Array.isArray(it.bundleSlots) ? (
+                      <div className="mt-2 space-y-1.5">
+                        {specs.map((slotData, sIdx) => (
+                          <div key={sIdx} className="bg-slate-50 rounded-lg p-2 border border-slate-200/80 text-xs">
+                            <p className="font-bold text-[#124734] text-[11px] mb-1">
+                              {slotData.slotTitle}: {slotData.drinkName}
+                            </p>
+                            <div className="space-y-0.5 text-slate-600">
+                              {(slotData.specs || []).map((sp, spIdx) => (
+                                <div key={spIdx} className="flex items-center gap-1 text-[11px]">
+                                  <span className="font-semibold text-slate-700">{sp.label}:</span>
+                                  <span>{sp.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      specs.length > 0 && (
+                        <div className="mt-1 space-y-0.5 text-xs">
+                          {specs.map((sp, spIdx) => (
+                            <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
+                              <span className="material-symbols-outlined text-[13px] text-slate-400">{sp.icon}</span>
+                              <span className="font-semibold text-slate-600">{sp.label}:</span>
+                              <span className="text-slate-900 font-medium">{sp.value}</span>
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        specs.length > 0 && (
-                          <div className="mt-1 space-y-0.5 text-xs">
-                            {specs.map((sp, spIdx) => (
-                              <div key={spIdx} className="flex items-center gap-1.5 text-[11px]">
-                                <span className="material-symbols-outlined text-[13px] text-slate-500">{sp.icon}</span>
-                                <span className="font-semibold text-slate-600">{sp.label}:</span>
-                                <span className="text-slate-900 font-medium">{sp.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      )}
-                    </div>
+                      )
+                    )}
                   </div>
                 )
               })}
