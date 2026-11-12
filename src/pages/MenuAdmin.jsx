@@ -11,14 +11,13 @@ import { seedMenuItems } from '../data/seedMenu.js'
 import { seedOptionGroups } from '../data/seedOptionGroups.js'
 import { getBasePrice, isFoodCategory } from '../utils/options.js'
 import { compressImage, formatKB } from '../utils/image.js'
-import { menuGroupIds } from '../utils/optionAdmin.js'
 import TopNav from '../components/TopNav.jsx'
 
 const emptyForm = {
   name: '',
   desc: '',
   itemType: 'drink', // 'drink' | 'food'
-  category: 'Signature Tea',
+  category: 'Minuman',
   subcategory: '',
   price: '',
   stock: '',
@@ -32,6 +31,7 @@ function rupiah(n) {
 }
 
 const DRINK_CATEGORIES = [
+  'Minuman',
   'Signature Tea',
   'Tropical',
   'Classic Tea',
@@ -42,6 +42,7 @@ const DRINK_CATEGORIES = [
 ]
 
 const FOOD_CATEGORIES = [
+  'Makanan',
   'Main Course',
   'Snacks',
   'Dessert',
@@ -50,14 +51,15 @@ const FOOD_CATEGORIES = [
   'Combo',
 ]
 
-// Subkategori per kategori
 const SUBCATEGORIES = {
+  'Minuman': ['Tea Series', 'Milk Tea', 'Fruit Tea', 'Coffee', 'Signature'],
   'Signature Tea': ['Original', 'Lychee', 'Jasmine', 'Matcha', 'Oolong'],
   'Tropical': ['Mangga', 'Nanas', 'Passion Fruit', 'Coconut'],
   'Classic Tea': ['Green Tea', 'Black Tea', 'Chamomile', 'Earl Grey'],
   'Fruit Tea': ['Lemon', 'Strawberry', 'Peach', 'Watermelon'],
   'Milk Tea': ['Brown Sugar', 'Taro', 'Thai Tea', 'Oat Milk'],
   'Coffee Series': ['Americano', 'Latte', 'Cappuccino', 'Cold Brew'],
+  'Makanan': ['Main Course', 'Snack Gurih', 'Snack Manis', 'Pastry'],
   'Main Course': ['Nasi', 'Mie', 'Pasta'],
   'Snacks': ['Goreng', 'Bakar', 'Rebus'],
   'Dessert': ['Ice Cream', 'Pudding', 'Cake'],
@@ -65,10 +67,6 @@ const SUBCATEGORIES = {
   'Paket Promo': [],
   'Combo': [],
 }
-
-// legacy compat
-const DEFAULT_DRINK_CATEGORIES = DRINK_CATEGORIES
-const DEFAULT_FOOD_CATEGORIES = FOOD_CATEGORIES
 
 export default function MenuAdmin() {
   const [items, setItems] = useState([])
@@ -80,7 +78,13 @@ export default function MenuAdmin() {
   const [imageChanged, setImageChanged] = useState(false)
   const [imageInfo, setImageInfo] = useState('')
   const [imageBusy, setImageBusy] = useState(false)
+
+  // Filter & Search & Pagination Tabel
   const [filterType, setFilterType] = useState('all') // 'all' | 'drink' | 'food'
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [activeMenuActionId, setActiveMenuActionId] = useState(null)
+  const pageSize = 6
 
   useEffect(() => {
     const unsub = listenToMenuItemsAdmin((data) => {
@@ -94,16 +98,33 @@ export default function MenuAdmin() {
   const drinkCount = useMemo(() => items.filter((i) => !isFoodCategory(i)).length, [items])
   const foodCount = useMemo(() => items.filter((i) => isFoodCategory(i)).length, [items])
 
-  // Filter daftar menu berdasarkan filterType
-  const displayedItems = useMemo(() => {
-    if (filterType === 'drink') return items.filter((i) => !isFoodCategory(i))
-    if (filterType === 'food') return items.filter((i) => isFoodCategory(i))
-    return items
-  }, [items, filterType])
+  // Filter daftar menu berdasarkan filterType dan search
+  const filteredItems = useMemo(() => {
+    let result = items
+    if (filterType === 'drink') result = result.filter((i) => !isFoodCategory(i))
+    else if (filterType === 'food') result = result.filter((i) => isFoodCategory(i))
 
-  // Saran kategori dinamis sesuai jenis menu (drink vs food) yang dipilih
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter((i) =>
+        (i.name || '').toLowerCase().includes(q) ||
+        (i.category || '').toLowerCase().includes(q) ||
+        (i.desc || '').toLowerCase().includes(q)
+      )
+    }
+    return result
+  }, [items, filterType, searchQuery])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / pageSize) || 1
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredItems.slice(start, start + pageSize)
+  }, [filteredItems, currentPage, pageSize])
+
+  // Saran kategori dinamis sesuai jenis menu
   const suggestedCategories = useMemo(() => {
-    const defaults = form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES
+    const defaults = form.itemType === 'food' ? FOOD_CATEGORIES : DRINK_CATEGORIES
     const existing = items
       .filter((i) => (form.itemType === 'food' ? isFoodCategory(i) : !isFoodCategory(i)))
       .map((i) => (i.category || '').trim())
@@ -119,8 +140,8 @@ export default function MenuAdmin() {
   }
 
   async function handlePickImage(e) {
-    const file = e.target.files?.[0]
-    e.target.value = '' // supaya file yang sama bisa dipilih ulang
+    const file = e.target?.files?.[0] || e
+    if (e.target) e.target.value = ''
     if (!file) return
     setImageBusy(true)
     try {
@@ -148,7 +169,7 @@ export default function MenuAdmin() {
       name: item.name || '',
       desc: item.desc || '',
       itemType: resolvedType,
-      category: item.category || (resolvedType === 'food' ? 'Snacks' : 'Signature Tea'),
+      category: item.category || (resolvedType === 'food' ? 'Makanan' : 'Minuman'),
       subcategory: item.subcategory || '',
       price: getBasePrice(item),
       stock: item.stock ?? '',
@@ -163,27 +184,25 @@ export default function MenuAdmin() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.name.trim() || !form.price) {
+    if (!form.name.trim() || form.price === '') {
       alert('Nama dan harga wajib diisi.')
       return
     }
     setSaving(true)
-    // Field itemType dan category disimpan ke Firestore agar admin memiliki kendali penuh
     const base = {
       name: form.name.trim(),
       desc: form.desc.trim(),
-      itemType: form.itemType, // 'drink' | 'food'
+      itemType: form.itemType,
       category: form.category.trim(),
       subcategory: (form.subcategory || '').trim() || null,
       inStock: form.inStock,
       tag: form.tag.trim() || null,
       price: Number(form.price),
       stock: form.stock !== '' ? Number(form.stock) : null,
-      basePrice: null, // field lama
+      basePrice: null,
     }
     try {
       if (editingId) {
-        // imageUrl hanya ikut dikirim kalau foto diganti/dihapus (menghindari mengirim ulang data besar)
         await updateMenuItem(editingId, imageChanged ? { ...base, imageUrl: form.imageUrl } : base)
       } else {
         await addMenuItem({ ...base, imageUrl: form.imageUrl, customizable: false, optionGroupIds: [] })
@@ -199,6 +218,7 @@ export default function MenuAdmin() {
   async function toggleStock(item) {
     try {
       await updateMenuItem(item.id, { inStock: !item.inStock })
+      setActiveMenuActionId(null)
     } catch (err) {
       alert('Gagal mengubah stok: ' + err.message)
     }
@@ -208,22 +228,18 @@ export default function MenuAdmin() {
     if (!confirm(`Hapus menu "${item.name}"?`)) return
     try {
       await deleteMenuItem(item.id)
+      setActiveMenuActionId(null)
     } catch (err) {
       alert('Gagal menghapus: ' + err.message)
     }
   }
 
   async function handleImportSeed() {
-    if (
-      !confirm(
-        `Isi data contoh? Ini menambahkan ${seedMenuItems.length} menu dan ${seedOptionGroups.length} template opsi yang BELUM ada. Data yang sudah ada tidak ditimpa.`
-      )
-    )
-      return
+    if (!confirm(`Isi data contoh? Ini menambahkan menu dan template opsi awal jika belum ada.`)) return
     setImporting(true)
     try {
       const n = await importSeed(seedMenuItems, seedOptionGroups)
-      alert(n === 0 ? 'Semua data contoh sudah ada, tidak ada yang ditambahkan.' : `${n} dokumen ditambahkan.`)
+      alert(n === 0 ? 'Semua data contoh sudah ada.' : `${n} dokumen ditambahkan.`)
     } catch (err) {
       alert('Gagal import: ' + err.message)
     } finally {
@@ -232,454 +248,580 @@ export default function MenuAdmin() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#FBFDFB] text-slate-800">
       <TopNav />
 
-      <main className="max-w-6xl mx-auto px-5 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <h1 className="text-xl font-bold">Kelola Menu</h1>
-          <button
-            onClick={handleImportSeed}
-            disabled={importing}
-            className="text-xs font-semibold px-3 py-2 rounded-full border border-border bg-surface hover:bg-sage-light transition-colors disabled:opacity-50"
-          >
-            {importing ? 'Mengisi...' : '⬇️ Isi Data Contoh'}
-          </button>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* Header Atas Persis Mockup */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#EAF5EE] text-[#124734] flex items-center justify-center shrink-0 shadow-2xs">
+              <span className="material-symbols-outlined text-[26px]">eco</span>
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Kelola Menu</h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Atur menu minuman dan makanan di outlet Anda.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {items.length === 0 && (
+              <button
+                onClick={handleImportSeed}
+                disabled={importing}
+                className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
+              >
+                {importing ? 'Mengisi...' : '⬇️ Isi Data Contoh'}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                resetForm()
+                document.getElementById('input-nama-menu')?.focus()
+              }}
+              className="bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span>Tambah Menu</span>
+            </button>
+          </div>
         </div>
 
-        {!loading && items.length === 0 && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-2xl px-4 py-3 mb-5">
-            Menu masih kosong. Klik <strong>Isi Data Contoh</strong> di atas untuk mengisi menu dan template opsi awal, atau tambah manual lewat form di bawah.
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-          {/* ===== FORM TAMBAH / EDIT MENU ===== */}
-          <form onSubmit={handleSubmit} className="bg-white border border-slate-200/80 rounded-2xl shadow-xs h-fit overflow-visible">
+        {/* Layout Grid: Kiri Form (380px) & Kanan Tabel */}
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
+          {/* ==================================================== */}
+          {/* KIRI: FORM TAMBAH / EDIT MENU (PERSIS MOCKUP)       */}
+          {/* ==================================================== */}
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs overflow-visible"
+          >
             {/* Header Form */}
-            <div className="px-5 pt-5 pb-4 border-b border-slate-100">
-              <h2 className="font-extrabold text-sm text-slate-900">
-                {editingId ? '✏️ Edit Menu' : '+ Tambah Menu Baru'}
+            <div className="flex items-center gap-2 mb-4 pb-1">
+              <div className="w-5 h-5 rounded-full bg-[#124734] text-white flex items-center justify-center text-xs font-black">
+                +
+              </div>
+              <h2 className="font-extrabold text-sm sm:text-base text-slate-900">
+                {editingId ? 'Edit Menu' : 'Tambah Menu'}
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {editingId ? 'Perbarui data item menu.' : 'Isi informasi menu baru.'}
-              </p>
             </div>
 
-            <div className="px-5 py-4 space-y-5">
-              {/* ── Bagian 1: Informasi Produk ── */}
-              <fieldset>
-                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  Informasi Produk
-                </legend>
-                <div className="space-y-3">
-                  {/* Upload Foto (Dropzone Style sesuai Mockup) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Foto Menu</label>
-                    {form.imageUrl ? (
-                      <div className="relative rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 p-2 flex items-center gap-3">
-                        <img src={form.imageUrl} alt="Preview" className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">Foto terpasang</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{imageInfo || 'Siap disimpan'}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <label className="text-[11px] font-bold text-[#124734] hover:underline cursor-pointer">
-                              Ganti Foto
-                              <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
-                            </label>
-                            <span className="text-slate-300">•</span>
-                            <button type="button" onClick={removeImage} className="text-[11px] font-bold text-red-500 hover:underline">
-                              Hapus
-                            </button>
-                          </div>
-                        </div>
+            <div className="space-y-4">
+              {/* Box Upload Foto */}
+              <div>
+                {form.imageUrl ? (
+                  <div className="relative rounded-2xl border border-emerald-100 bg-[#F4F9F5] p-3 flex items-center gap-3">
+                    <img
+                      src={form.imageUrl}
+                      alt="Preview"
+                      className="w-16 h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-800 truncate">Foto Terpasang</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{imageInfo || 'Siap disimpan'}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <label className="text-[11px] font-bold text-[#124734] hover:underline cursor-pointer">
+                          Ganti Foto
+                          <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
+                        </label>
+                        <span className="text-slate-300">•</span>
+                        <button type="button" onClick={removeImage} className="text-[11px] font-bold text-red-500 hover:underline">
+                          Hapus
+                        </button>
                       </div>
-                    ) : (
-                      <label
-                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const file = e.dataTransfer?.files?.[0];
-                          if (file) {
-                            handlePickImage({ target: { files: [file], value: '' } });
-                          }
-                        }}
-                        className="border-2 border-dashed border-emerald-200/80 hover:border-emerald-600 rounded-2xl p-4 bg-emerald-50/20 hover:bg-emerald-50/40 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
-                      >
-                        <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
-                          <span className="material-symbols-outlined text-[22px]">add_photo_alternate</span>
-                        </div>
-                        <p className="text-xs font-bold text-slate-800">
-                          {imageBusy ? 'Memproses...' : 'Upload Foto'}
-                        </p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop atau klik untuk memilih file</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG (maks. 2MB)</p>
-                      </label>
-                    )}
+                    </div>
                   </div>
+                ) : (
+                  <label
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer?.files?.[0];
+                      if (file) handlePickImage(file);
+                    }}
+                    className="border-2 border-dashed border-[#CDE5D5] hover:border-[#124734] bg-[#F4F9F5] hover:bg-[#EBF5EE] rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
+                  >
+                    <input type="file" accept="image/*" onChange={handlePickImage} disabled={imageBusy} className="hidden" />
+                    <div className="w-11 h-11 rounded-2xl bg-white border border-emerald-100 text-emerald-700 flex items-center justify-center mb-2 shadow-2xs group-hover:scale-105 transition-transform">
+                      <span className="material-symbols-outlined text-[24px]">image</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900">
+                      {imageBusy ? 'Memproses...' : 'Upload Foto'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop atau klik untuk memilih file</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG (maks. 2MB)</p>
+                  </label>
+                )}
+              </div>
 
-                  {/* Nama Menu */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Nama Menu <span className="text-red-500">*</span>
-                    </label>
+              {/* Nama Menu */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Nama Menu <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="input-nama-menu"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
+                  placeholder="Contoh: Matcha Latte"
+                  required
+                />
+              </div>
+
+              {/* Deskripsi */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Deskripsi</label>
+                <textarea
+                  value={form.desc}
+                  maxLength={200}
+                  onChange={(e) => setForm({ ...form, desc: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all resize-none"
+                  rows={2}
+                  placeholder="Deskripsi singkat menu..."
+                />
+                <div className="text-right -mt-1">
+                  <span className="text-[10px] font-medium text-slate-400">{form.desc.length}/200</span>
+                </div>
+              </div>
+
+              {/* Kategori Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Kategori <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                    {form.itemType === 'food' ? 'lunch_dining' : 'local_cafe'}
+                  </span>
+                  <select
+                    value={form.category}
+                    onChange={(e) => {
+                      const newCat = e.target.value
+                      const isFood = FOOD_CATEGORIES.includes(newCat) || isFoodCategory(newCat)
+                      setForm({
+                        ...form,
+                        category: newCat,
+                        itemType: isFood ? 'food' : 'drink',
+                        subcategory: '',
+                      })
+                    }}
+                    className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all appearance-none cursor-pointer"
+                    required
+                  >
+                    <optgroup label="Minuman">
+                      {DRINK_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Makanan">
+                      {FOOD_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                    expand_more
+                  </span>
+                </div>
+              </div>
+
+              {/* Sub Kategori Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Sub Kategori (Opsional)</label>
+                <div className="relative">
+                  <select
+                    value={form.subcategory || ''}
+                    onChange={(e) => setForm({ ...form, subcategory: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all appearance-none cursor-pointer pr-9"
+                  >
+                    <option value="">Pilih sub kategori</option>
+                    {(SUBCATEGORIES[form.category] || []).map((sub) => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                    expand_more
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 2 Kolom: Harga & Stok */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    Harga <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
                     <input
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
-                      placeholder="Contoh: Matcha Latte"
+                      type="number"
+                      min="0"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
+                      placeholder="0"
                       required
                     />
                   </div>
+                </div>
 
-                  {/* Deskripsi dengan Counter 0/200 */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-slate-700">Deskripsi</label>
-                      <span className="text-[10px] font-medium text-slate-400">{form.desc.length}/200</span>
-                    </div>
-                    <textarea
-                      value={form.desc}
-                      maxLength={200}
-                      onChange={(e) => setForm({ ...form, desc: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors resize-none"
-                      rows={2}
-                      placeholder="Deskripsi singkat menu..."
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">Stok (Opsional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.stock ?? ''}
+                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
+                    placeholder="Contoh: 100"
+                  />
+                </div>
+              </div>
+
+              {/* Status Menu Toggle */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Status Menu</label>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.inStock}
+                    onClick={() => setForm((f) => ({ ...f, inStock: !f.inStock }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      form.inStock ? 'bg-[#124734]' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        form.inStock ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
-                  </div>
-
-                  {/* Tag */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tag (Opsional)</label>
-                    <input
-                      value={form.tag}
-                      onChange={(e) => setForm({ ...form, tag: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
-                      placeholder="Limited, New, Best Seller"
-                    />
-                  </div>
+                  </button>
+                  <span className="text-xs font-semibold text-slate-800">
+                    {form.inStock ? 'Menu Aktif' : 'Menu Nonaktif'}
+                  </span>
                 </div>
-              </fieldset>
+              </div>
 
-              <div className="border-t border-slate-100" />
-
-              {/* ── Bagian 2: Jenis & Kategori ── */}
-              <fieldset>
-                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  Jenis & Kategori
-                </legend>
-                <div className="space-y-3">
-                  {/* Jenis Menu — Segmented Button */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Jenis Menu</label>
-                    <div className="inline-flex w-full border border-slate-200 rounded-xl overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({
-                          ...f,
-                          itemType: 'drink',
-                          category: f.itemType === 'food' ? 'Signature Tea' : f.category,
-                          subcategory: '',
-                        }))}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all ${
-                          form.itemType === 'drink'
-                            ? 'bg-[#124734] text-white'
-                            : 'bg-white text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>🍵</span><span>Minuman</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({
-                          ...f,
-                          itemType: 'food',
-                          category: f.itemType === 'drink' ? 'Snacks' : f.category,
-                          subcategory: '',
-                        }))}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold transition-all border-l border-slate-200 ${
-                          form.itemType === 'food'
-                            ? 'bg-amber-600 text-white border-amber-600'
-                            : 'bg-white text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>🍛</span><span>Makanan</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Kategori — Dropdown */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Kategori <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value, subcategory: '' })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors appearance-none cursor-pointer"
-                      required
-                    >
-                      {(form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES).map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      {/* Kategori custom dari database yang belum ada di default */}
-                      {suggestedCategories
-                        .filter((c) => !(form.itemType === 'food' ? DEFAULT_FOOD_CATEGORIES : DEFAULT_DRINK_CATEGORIES).includes(c))
-                        .map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                  </div>
-
-                  {/* Subkategori — Dropdown (opsional, mengikuti kategori) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Subkategori</label>
-                    <select
-                      value={form.subcategory || ''}
-                      onChange={(e) => setForm({ ...form, subcategory: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors appearance-none cursor-pointer"
-                    >
-                      <option value="">— Pilih subkategori (opsional) —</option>
-                      {(SUBCATEGORIES[form.category] || []).map((sub) => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </fieldset>
-
-              <div className="border-t border-slate-100" />
-
-              {/* ── Bagian 3: Harga & Stok ── */}
-              <fieldset>
-                <legend className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  Harga & Stok
-                </legend>
-                <div className="space-y-3">
-                  {/* Grid Harga & Stok Berdampingan sesuai Mockup */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Harga */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                        Harga <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={form.price}
-                          onChange={(e) => setForm({ ...form, price: e.target.value })}
-                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
-                          placeholder="0"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Stok */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Stok (Opsional)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={form.stock ?? ''}
-                        onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-colors"
-                        placeholder="Contoh: 100"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Toggle Ketersediaan Menu */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status Menu</label>
-                    <div className="flex items-center gap-3 py-2">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={form.inStock}
-                        onClick={() => setForm((f) => ({ ...f, inStock: !f.inStock }))}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          form.inStock ? 'bg-[#124734]' : 'bg-slate-300'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                            form.inStock ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                      <span className="text-xs font-bold text-slate-700">
-                        {form.inStock ? 'Menu Aktif' : 'Menu Nonaktif (Draft)'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </fieldset>
+              {/* Tag Tambahan (Opsional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Tag Khusus (Opsional)</label>
+                <input
+                  value={form.tag}
+                  onChange={(e) => setForm({ ...form, tag: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] transition-all"
+                  placeholder="Limited, Best Seller, Seasonal"
+                />
+              </div>
             </div>
 
-            {/* Footer CTA */}
-            <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex gap-2">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Batal
-                </button>
-              )}
+            {/* Tombol Aksi Bawah: Reset & Simpan */}
+            <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2.5">
               <button
                 type="button"
                 onClick={resetForm}
                 disabled={saving}
-                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="w-28 py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[15px]">refresh</span>
-                Reset
+                <span>Reset</span>
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs py-2.5 rounded-xl transition-colors disabled:opacity-50 shadow-xs"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
               >
                 {saving ? (
                   <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
                 ) : (
-                  <span className="material-symbols-outlined text-[15px]">save</span>
+                  <span className="material-symbols-outlined text-[16px]">save</span>
                 )}
                 <span>{saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Simpan'}</span>
               </button>
             </div>
           </form>
 
-          {/* Daftar menu */}
-          <div className="flex flex-col gap-3">
-            {/* Filter Menu List: Semua, Drinks, Food */}
-            <div className="flex items-center justify-between gap-2 flex-wrap bg-surface border border-border rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setFilterType('all')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-                    filterType === 'all'
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-surface text-ink-muted border-border hover:border-ink'
-                  }`}
-                >
-                  Semua ({items.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterType('drink')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-                    filterType === 'drink'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-surface text-ink-muted border-border hover:border-emerald-600'
-                  }`}
-                >
-                  🍵 Drinks ({drinkCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterType('food')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-                    filterType === 'food'
-                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                      : 'bg-surface text-ink-muted border-border hover:border-amber-600'
-                  }`}
-                >
-                  🍛 Food ({foodCount})
-                </button>
+          {/* ==================================================== */}
+          {/* KANAN: DAFTAR MENU TABEL (PERSIS MOCKUP)            */}
+          {/* ==================================================== */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs flex flex-col justify-between min-h-[600px]">
+            <div>
+              {/* Header Card Kanan */}
+              <div className="flex items-center gap-2 mb-4 pb-1">
+                <span className="material-symbols-outlined text-[#124734] text-[22px]">format_list_bulleted</span>
+                <h2 className="font-extrabold text-sm sm:text-base text-slate-900">Daftar Menu</h2>
               </div>
-              <span className="text-xs text-ink-muted">
-                {displayedItems.length} menu ditampilkan
-              </span>
+
+              {/* Toolbar: Search & Filter Tabs & Filter Button */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                {/* Search Bar */}
+                <div className="relative flex-1 min-w-[200px] max-w-xs">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    placeholder="Cari menu..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">close</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setFilterType('all'); setCurrentPage(1); }}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        filterType === 'all'
+                          ? 'bg-[#124734] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
+                      }`}
+                    >
+                      Semua ({items.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFilterType('drink'); setCurrentPage(1); }}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        filterType === 'drink'
+                          ? 'bg-[#124734] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
+                      }`}
+                    >
+                      Minuman ({drinkCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFilterType('food'); setCurrentPage(1); }}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        filterType === 'food'
+                          ? 'bg-[#124734] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
+                      }`}
+                    >
+                      Makanan ({foodCount})
+                    </button>
+                  </div>
+
+                  {/* Tombol Filter Tambahan */}
+                  <Link
+                    to="/kustom"
+                    title="Kustom Menu & Opsi"
+                    className="border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1 hover:bg-slate-50 transition-colors shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">tune</span>
+                    <span>Filter</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Tabel Menu */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-2">Menu</th>
+                      <th className="py-3 px-2">Kategori</th>
+                      <th className="py-3 px-2">Harga</th>
+                      <th className="py-3 px-2">Stok</th>
+                      <th className="py-3 px-2">Status</th>
+                      <th className="py-3 px-2 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
+                    {loading && (
+                      <tr>
+                        <td colSpan="6" className="py-12 text-center text-slate-400">
+                          <span className="material-symbols-outlined text-3xl animate-spin">progress_activity</span>
+                          <p className="mt-2 text-xs">Memuat menu...</p>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!loading && paginatedItems.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="py-12 text-center text-slate-400">
+                          <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
+                          <p className="mt-2 font-bold text-slate-600">Tidak ada menu yang sesuai</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Coba ubah kata kunci pencarian atau filter.</p>
+                        </td>
+                      </tr>
+                    )}
+
+                    {!loading && paginatedItems.map((item) => {
+                      const isFood = isFoodCategory(item)
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                          {/* Kolom Menu (Foto + Nama + Deskripsi) */}
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                                {item.imageUrl ? (
+                                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined text-emerald-700 text-[20px]">
+                                    {isFood ? 'lunch_dining' : 'local_cafe'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0 max-w-[220px]">
+                                <p className="font-bold text-slate-900 truncate leading-snug">{item.name}</p>
+                                <p className="text-[11px] text-slate-400 truncate mt-0.5">{item.desc || 'Tanpa deskripsi'}</p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Kolom Kategori (Badge Hijau Soft dengan icon) */}
+                          <td className="py-3 px-2 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF5EE] text-[#124734] text-[11px] font-bold">
+                              <span className="material-symbols-outlined text-[13px]">
+                                {isFood ? 'lunch_dining' : 'local_cafe'}
+                              </span>
+                              <span>{item.category || (isFood ? 'Makanan' : 'Minuman')}</span>
+                            </span>
+                          </td>
+
+                          {/* Kolom Harga */}
+                          <td className="py-3 px-2 font-bold text-slate-900 whitespace-nowrap">
+                            {rupiah(getBasePrice(item))}
+                          </td>
+
+                          {/* Kolom Stok */}
+                          <td className="py-3 px-2 text-slate-600 font-medium whitespace-nowrap">
+                            {item.stock !== null && item.stock !== undefined && item.stock !== '' ? item.stock : 100}
+                          </td>
+
+                          {/* Kolom Status (Aktif hijau / Draft biru) */}
+                          <td className="py-3 px-2 whitespace-nowrap">
+                            {item.inStock !== false ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#EAF8F0] text-emerald-700 border border-emerald-200/50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>Aktif</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/50">
+                                <span className="material-symbols-outlined text-[12px]">edit_note</span>
+                                <span>Draft</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Kolom Aksi (Edit & More) */}
+                          <td className="py-3 px-2 text-center whitespace-nowrap">
+                            <div className="relative inline-flex items-center gap-1.5 justify-center">
+                              {/* Tombol Edit */}
+                              <button
+                                type="button"
+                                onClick={() => startEdit(item)}
+                                title="Edit Menu"
+                                className="w-8 h-8 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                              </button>
+
+                              {/* Tombol More Titik Tiga */}
+                              <button
+                                type="button"
+                                onClick={() => setActiveMenuActionId(activeMenuActionId === item.id ? null : item.id)}
+                                title="Menu Opsi"
+                                className="w-8 h-8 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">more_vert</span>
+                              </button>
+
+                              {/* Popover Menu Aksi */}
+                              {activeMenuActionId === item.id && (
+                                <div className="absolute right-0 top-10 z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left">
+                                  <button
+                                    onClick={() => toggleStock(item)}
+                                    className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">
+                                      {item.inStock !== false ? 'visibility_off' : 'visibility'}
+                                    </span>
+                                    <span>{item.inStock !== false ? 'Jadikan Draft' : 'Aktifkan'}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => removeItem(item)}
+                                    className="w-full px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">delete</span>
+                                    <span>Hapus Menu</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {loading && <p className="text-ink-muted text-sm">Memuat menu...</p>}
-            {!loading && displayedItems.length === 0 && (
-              <p className="text-ink-muted text-xs p-4 bg-surface rounded-xl border border-dashed border-border text-center">
-                Tidak ada menu untuk filter ini.
+            {/* Footer Pagination Persis Mockup */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+              <p>
+                Menampilkan{' '}
+                <span className="font-semibold text-slate-700">
+                  {filteredItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+                </span>
+                –
+                <span className="font-semibold text-slate-700">
+                  {Math.min(currentPage * pageSize, filteredItems.length)}
+                </span>{' '}
+                dari <span className="font-semibold text-slate-700">{filteredItems.length}</span> menu
               </p>
-            )}
-            {displayedItems.map((item) => {
-              const groupCount = menuGroupIds(item).length
-              const isFood = isFoodCategory(item)
-              return (
-                <div
-                  key={item.id}
-                  className={`bg-surface border border-border rounded-2xl p-4 flex items-center gap-4 ${
-                    item.inStock === false ? 'opacity-60' : ''
-                  }`}
-                >
-                  {item.imageUrl && (
-                    <img src={item.imageUrl} alt="" className="w-16 aspect-[4/3] rounded-lg object-cover border border-border shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-bold text-sm">{item.name}</p>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isFood
-                            ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                        }`}
-                      >
-                        {isFood ? '🍛 Food' : '🍵 Drink'}
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-light text-sage-dark uppercase">
-                        {item.category}
-                      </span>
-                      {item.tag && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          {item.tag}
-                        </span>
-                      )}
-                      {item.inStock === false && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                          Habis
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-ink-muted mt-0.5 truncate">{item.desc}</p>
-                    <p className="text-sm font-semibold text-sage-dark mt-1">
-                      {rupiah(getBasePrice(item))}
-                      <span className="ml-2 text-[11px] font-normal text-ink-muted">
-                        {groupCount > 0 ? `${groupCount} grup opsi` : 'tanpa opsi'}
-                      </span>
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1 self-end sm:self-auto">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">chevron_left</span>
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <button
-                      onClick={() => toggleStock(item)}
-                      title="Toggle stok"
-                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border hover:bg-sage-light"
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                        currentPage === page
+                          ? 'bg-[#124734] text-white shadow-2xs'
+                          : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
                     >
-                      {item.inStock === false ? 'Stokkan' : '86 (habis)'}
+                      {page}
                     </button>
-                    <button
-                      onClick={() => startEdit(item)}
-                      title="Edit"
-                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border hover:bg-sage-light"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => removeItem(item)}
-                      title="Hapus"
-                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-border text-danger hover:bg-red-50"
-                    >
-                      Hapus
-                    </button>
-                  </div>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">chevron_right</span>
+                  </button>
                 </div>
-              )
-            })}
+              )}
+            </div>
           </div>
         </div>
       </main>
