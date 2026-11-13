@@ -1,6 +1,11 @@
-// Aturan pengelolaan admin (murni, mudah dites). Peran: owner = semua, kasir = hanya Pesanan.
-export const ROLES = ['owner', 'kasir']
-export const ROLE_LABEL = { owner: 'Owner', kasir: 'Kasir' }
+// Aturan pengelolaan admin (murni, mudah dites). Peran: owner = semua, admin = menu & pesanan, kasir = kasir & antrean.
+export const ROLES = ['owner', 'admin', 'kasir']
+export const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', kasir: 'Kasir' }
+export const ROLE_DESC = {
+  owner: 'Akses penuh untuk seluruh pengaturan outlet',
+  admin: 'Akses operasional menu, kustom & pesanan',
+  kasir: 'Akses untuk operasional kasir & pesanan',
+}
 
 const ownerCount = (admins) => admins.filter((a) => a.role === 'owner').length
 
