@@ -6,6 +6,7 @@ import OptionsAdmin from './pages/OptionsAdmin.jsx'
 import AdminsAdmin from './pages/AdminsAdmin.jsx'
 import TablesAdmin from './pages/TablesAdmin.jsx'
 import PosAdmin from './pages/PosAdmin.jsx'
+import VouchersAdmin from './pages/VouchersAdmin.jsx'
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx'
 
 export default function App() {
@@ -57,6 +58,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute ownerOnly>
             <AdminsAdmin />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/vouchers"
+        element={
+          <ProtectedAdminRoute ownerOnly>
+            <VouchersAdmin />
           </ProtectedAdminRoute>
         }
       />

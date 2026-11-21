@@ -111,6 +111,14 @@ export default function TopNav() {
             <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
             <span>Kelola Admin</span>
           </NavLink>
+          <NavLink
+            to="/vouchers"
+            onClick={() => setMobileOpen(false)}
+            className={navLinkClass}
+          >
+            <span className="material-symbols-outlined text-[20px]">loyalty</span>
+            <span>Voucher &amp; Rewards</span>
+          </NavLink>
         </>
       )}
     </div>
