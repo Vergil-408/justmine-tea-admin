@@ -256,7 +256,7 @@ export default function Orders() {
   async function markPaid(order) {
     if (!window.confirm(`Tandai pesanan #${order.orderCode} sudah dibayar (${rupiah(order.total ?? order.subtotal)})?`)) return
     try {
-      await markOrderPaid(order.id)
+      await markOrderPaid(order.id, order.userId, order.total ?? order.subtotal, order.orderCode)
     } catch (err) {
       window.alert('Gagal menandai dibayar: ' + err.message)
     }
