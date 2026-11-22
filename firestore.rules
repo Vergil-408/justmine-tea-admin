@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Peran admin: dokumen admins/{uid} dengan field role = 'owner' | 'kasir' ----
+    function role() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role
+        : 'none';
+    }
+    function isOwner() { return role() == 'owner'; }
+    function isStaff() { return role() == 'owner' || role() == 'kasir'; }
+
+    // Katalog: dibaca semua orang, hanya owner yang boleh mengubah.
+    match /menuItems/{id} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+    match /optionGroups/{id} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    // Voucher & Rewards:
+    // - Bisa dibaca oleh semua orang (katalog reward voucher)
+    // - Dikelola/ditulis oleh staff (owner & kasir)
+    match /vouchers/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Riwayat Penukaran Voucher (Audit Log & Tracking):
+    // - Dibaca oleh staff (untuk audit di Admin Dashboard) atau oleh pemilik voucher
+    // - Dibuat saat penukaran voucher
+    // - Diubah/dikelola oleh staff
+    match /voucherRedemptions/{id} {
+      allow read: if isStaff() || (request.auth != null && resource.data.customerId == request.auth.uid);
+      allow create: if request.auth != null || isStaff();
+      allow update, delete: if isStaff();
+    }
+
+    // Pesanan:
+    // - dibuat oleh server (Admin SDK melewati rules) ATAU oleh staff (POS Kasir)
+    // - staff (owner/kasir) boleh membuat pesanan baru dari POS
+    // - staff boleh mengubah status & penanda bayar
+    // - hapus hanya owner
+    match /orders/{id} {
+      allow read: if true;
+      allow create: if isStaff();
+      allow update: if isStaff()
+        && (request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'paymentStatus', 'paidAt']) || isStaff());
+      allow delete: if isOwner();
+    }
+
+    // Daftar admin: tiap orang boleh membaca dokumennya sendiri; owner mengelola semuanya.
+    match /admins/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isOwner());
+      allow write: if isOwner();
+    }
+
+    // Permintaan akses: calon admin hanya boleh menulis permintaan atas UID-nya sendiri.
+    match /adminRequests/{uid} {
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'name', 'requestedAt']);
+      allow read, delete: if isOwner();
+    }
+
+    // Profil & poin pelanggan (bisa dicari & ditambah poin oleh kasir saat transaksi).
+    match /users/{uid} {
+      allow read: if isStaff() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isStaff() || (
+        request.auth != null && request.auth.uid == uid
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName.matches('^[^0-9]*$'))
+        && (!('phone' in request.resource.data) || request.resource.data.phone.matches('^[0-9]*$'))
+      );
+    }
+
+    // Nomor urut harian antrean / kasir
+    match /counters/{id} {
+      allow read, write: if isStaff();
+    }
+  }
+}
