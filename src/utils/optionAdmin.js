@@ -89,6 +89,9 @@ export function validateGroup(clean, allGroups, isNew) {
     clean.choices.forEach((c, i) => {
       if (!c.label) errs.push(`Pilihan #${i + 1}: nama wajib diisi.`)
       if (!/^[a-z0-9-]+$/.test(c.id)) errs.push(`Pilihan "${c.label || '#' + (i + 1)}": id tidak valid.`)
+      if (c.price !== undefined && c.price !== null && /[a-zA-Z]/.test(String(c.price))) {
+        errs.push(`Pilihan "${c.label || '#' + (i + 1)}": harga tambahan tidak boleh mengandung huruf.`)
+      }
       if (seen.has(c.id)) errs.push(`Id pilihan "${c.id}" dobel.`)
       seen.add(c.id)
     })

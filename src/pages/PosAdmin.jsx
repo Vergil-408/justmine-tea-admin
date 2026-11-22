@@ -396,6 +396,19 @@ export default function PosAdmin() {
       return
     }
 
+    if (guestName.trim() && /\d/.test(guestName.trim())) {
+      alert('Nama pelanggan tidak boleh mengandung angka.')
+      return
+    }
+    if (guestPhone.trim() && /[a-zA-Z]/.test(guestPhone.trim())) {
+      alert('Nomor telepon hanya boleh berisi angka, tidak boleh mengandung huruf.')
+      return
+    }
+    if (orderType === 'dine_in' && tableNumber.trim() && /[a-zA-Z]/.test(tableNumber.trim())) {
+      alert('Nomor meja hanya boleh berisi angka, tidak boleh mengandung huruf.')
+      return
+    }
+
     setSubmitting(true)
 
     const finalCustomerName = selectedMember?.displayName || guestName.trim() || 'Guest'

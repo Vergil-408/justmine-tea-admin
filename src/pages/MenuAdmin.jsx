@@ -188,6 +188,14 @@ export default function MenuAdmin() {
       alert('Nama dan harga wajib diisi.')
       return
     }
+    if (/[a-zA-Z]/.test(String(form.price).trim())) {
+      alert('Harga hanya boleh berisi angka, tidak boleh mengandung huruf.')
+      return
+    }
+    if (form.stock !== '' && form.stock !== null && form.stock !== undefined && /[a-zA-Z]/.test(String(form.stock).trim())) {
+      alert('Stok hanya boleh berisi angka, tidak boleh mengandung huruf.')
+      return
+    }
     setSaving(true)
     const base = {
       name: form.name.trim(),

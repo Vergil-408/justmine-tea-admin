@@ -161,6 +161,7 @@ export default function AdminsAdmin() {
     const email = form.email.trim().toLowerCase()
 
     if (!name) return setFormError('Nama lengkap wajib diisi.')
+    if (/\d/.test(name)) return setFormError('Nama lengkap tidak boleh mengandung angka.')
     if (!isValidEmail(email)) return setFormError('Isi alamat email yang valid.')
 
     // Mode Edit

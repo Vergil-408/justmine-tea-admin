@@ -264,14 +264,20 @@ export default function VouchersAdmin() {
   function validateForm() {
     const errs = {}
     if (!formData.name.trim()) errs.name = 'Nama voucher wajib diisi'
-    if (!formData.pointsRequired || Number(formData.pointsRequired) <= 0) {
+    if (/[a-zA-Z]/.test(String(formData.pointsRequired))) {
+      errs.pointsRequired = 'Poin hanya boleh berisi angka, tidak boleh mengandung huruf'
+    } else if (!formData.pointsRequired || Number(formData.pointsRequired) <= 0) {
       errs.pointsRequired = 'Poin penukaran harus lebih besar dari 0'
     }
-    if (!formData.quota || Number(formData.quota) <= 0) {
+    if (/[a-zA-Z]/.test(String(formData.quota))) {
+      errs.quota = 'Kuota hanya boleh berisi angka, tidak boleh mengandung huruf'
+    } else if (!formData.quota || Number(formData.quota) <= 0) {
       errs.quota = 'Total kuota voucher harus lebih besar dari 0'
     }
     if (formData.rewardType === 'fixed_discount') {
-      if (!formData.discountAmount || Number(formData.discountAmount) <= 0) {
+      if (/[a-zA-Z]/.test(String(formData.discountAmount))) {
+        errs.discountAmount = 'Nominal diskon hanya boleh berisi angka, tidak boleh mengandung huruf'
+      } else if (!formData.discountAmount || Number(formData.discountAmount) <= 0) {
         errs.discountAmount = 'Nominal potongan harga wajib diisi dan > 0'
       }
     } else if (formData.rewardType === 'free_topping') {
@@ -279,13 +285,20 @@ export default function VouchersAdmin() {
         errs.freeToppingName = 'Pilih salah satu topping yang digratiskan'
       }
     }
+    if (formData.minPurchase && /[a-zA-Z]/.test(String(formData.minPurchase))) {
+      errs.minPurchase = 'Minimal pembelian hanya boleh berisi angka, tidak boleh mengandung huruf'
+    }
     if (!formData.startDate) errs.startDate = 'Tanggal mulai penukaran wajib diisi'
     if (!formData.endDate) errs.endDate = 'Tanggal selesai penukaran wajib diisi'
     if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
       errs.endDate = 'Tanggal selesai tidak boleh sebelum tanggal mulai'
     }
-    if (formData.validityType === 'duration' && (!formData.validityDays || Number(formData.validityDays) <= 0)) {
-      errs.validityDays = 'Durasi masa berlaku hari harus > 0'
+    if (formData.validityType === 'duration') {
+      if (/[a-zA-Z]/.test(String(formData.validityDays))) {
+        errs.validityDays = 'Durasi hari hanya boleh berisi angka, tidak boleh mengandung huruf'
+      } else if (!formData.validityDays || Number(formData.validityDays) <= 0) {
+        errs.validityDays = 'Durasi masa berlaku hari harus > 0'
+      }
     }
     if (formData.validityType === 'fixed_date' && !formData.fixedExpiryDate) {
       errs.fixedExpiryDate = 'Pilih tanggal kadaluwarsa pasti'
