@@ -30,12 +30,27 @@ export function listenToAllOrders(callback) {
 }
 
 /**
- * Ubah status 1 pesanan.
+ * Ubah status 1 pesanan, lalu kirim Web Push ke pelanggan via Vercel API.
  * @param {string} orderId
  * @param {'menunggu'|'diproses'|'siap'|'selesai'|'dibatalkan'} newStatus
+ * @param {{ orderCode?: string, userId?: string }} meta - info tambahan untuk push notif
  */
-export async function updateOrderStatus(orderId, newStatus) {
+export async function updateOrderStatus(orderId, newStatus, meta = {}) {
   await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
+
+  // Kirim push notification di background (fire-and-forget, tidak blok UI admin)
+  fetch('/api/send-push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      orderId,
+      status: newStatus,
+      orderCode: meta.orderCode || null,
+      userId: meta.userId || null,
+    }),
+  }).catch(() => {
+    // Gagal push → tidak masalah, Firestore onSnapshot di customer app tetap berjalan
+  })
 }
 
 /**

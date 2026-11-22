@@ -69,6 +69,7 @@ service cloud.firestore {
     }
 
     // Profil & poin pelanggan (bisa dicari & ditambah poin oleh kasir saat transaksi).
+    // fcmToken bisa diupdate oleh pelanggan sendiri (diperlukan untuk Web Push).
     match /users/{uid} {
       allow read: if isStaff() || (request.auth != null && request.auth.uid == uid);
       allow write: if isStaff() || (
@@ -76,6 +77,9 @@ service cloud.firestore {
         && (!('displayName' in request.resource.data) || request.resource.data.displayName.matches('^[^0-9]*$'))
         && (!('phone' in request.resource.data) || request.resource.data.phone.matches('^[0-9]*$'))
       );
+      // Izinkan update fcmToken saja tanpa validasi ketat (untuk Web Push registration)
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken', 'fcmUpdatedAt']);
     }
 
     // Nomor urut harian antrean / kasir

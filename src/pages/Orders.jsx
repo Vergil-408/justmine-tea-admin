@@ -211,7 +211,7 @@ export default function Orders() {
   // Aksi status
   async function advanceToReady(order) {
     try {
-      await updateOrderStatus(order.id, 'siap')
+      await updateOrderStatus(order.id, 'siap', { orderCode: order.orderCode, userId: order.userId })
     } catch (err) {
       window.alert('Gagal menandai siap: ' + err.message)
     }
@@ -219,7 +219,7 @@ export default function Orders() {
 
   async function advanceToComplete(order) {
     try {
-      await updateOrderStatus(order.id, 'selesai')
+      await updateOrderStatus(order.id, 'selesai', { orderCode: order.orderCode, userId: order.userId })
     } catch (err) {
       window.alert('Gagal menyelesaikan pesanan: ' + err.message)
     }
@@ -233,6 +233,12 @@ export default function Orders() {
         status: 'dibatalkan',
         cancelledReason: reason.trim() || 'Dibatalkan oleh kasir',
       })
+      // Kirim push untuk pembatalan
+      fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, status: 'dibatalkan', orderCode: order.orderCode, userId: order.userId }),
+      }).catch(() => {})
     } catch (err) {
       window.alert('Gagal membatalkan: ' + err.message)
     }
