@@ -1,4 +1,4 @@
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db } from './firebase.js'
 
 // Clean undefined values for Firestore
@@ -210,14 +210,25 @@ let localVouchers = [...initialVouchers]
 let localRedemptions = [...initialRedemptions]
 
 /**
- * Dengarkan koleksi vouchers secara realtime
+ * Dengarkan koleksi vouchers secara realtime.
+ * Jika koleksi kosong → seed data awal ke Firestore agar tidak perlu manual input.
  */
 export function listenToVouchersAdmin(callback) {
   try {
     return onSnapshot(
       collection(db, 'vouchers'),
-      (snap) => {
+      async (snap) => {
         if (snap.empty) {
+          // Seed initial vouchers ke Firestore saat koleksi kosong
+          try {
+            const batch = writeBatch(db)
+            initialVouchers.forEach((v) => {
+              batch.set(doc(db, 'vouchers', v.id), clean(v))
+            })
+            await batch.commit()
+          } catch (seedErr) {
+            console.warn('Firestore voucher seed failed, using local data:', seedErr)
+          }
           callback(localVouchers)
         } else {
           const list = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
@@ -264,7 +275,8 @@ export async function saveVoucher(voucher) {
 }
 
 /**
- * Ubah status voucher (Aktif / Nonaktif)
+ * Ubah status voucher (Aktif / Nonaktif).
+ * Gunakan setDoc dengan merge agar tetap berjalan meski dokumen belum ada di Firestore.
  */
 export async function toggleVoucherStatus(id, active) {
   const status = active ? 'active' : 'inactive'
@@ -273,9 +285,10 @@ export async function toggleVoucherStatus(id, active) {
     localVouchers[idx] = { ...localVouchers[idx], active, status }
   }
   try {
-    await updateDoc(doc(db, 'vouchers', id), { active, status })
+    // setDoc dengan merge: aman untuk dokumen yang belum ada maupun yang sudah ada
+    await setDoc(doc(db, 'vouchers', id), { active, status, updatedAt: new Date().toISOString() }, { merge: true })
   } catch (err) {
-    console.warn('Firestore updateDoc voucher error:', err)
+    console.warn('Firestore toggleVoucherStatus error:', err)
   }
 }
 
@@ -287,12 +300,14 @@ export async function deleteVoucher(id) {
   try {
     await deleteDoc(doc(db, 'vouchers', id))
   } catch (err) {
-    console.warn('Firestore deleteDoc voucher error:', err)
+    // Dokumen mungkin tidak ada di Firestore (hanya ada di seed lokal) — tidak perlu throw
+    console.warn('Firestore deleteDoc voucher error (safe to ignore if doc not in DB):', err)
   }
 }
 
 /**
- * Dengarkan data riwayat penukaran poin
+ * Dengarkan data riwayat penukaran poin.
+ * Jika koleksi kosong → tampilkan seed lokal saja (redemptions tidak di-seed ke Firestore).
  */
 export function listenToRedemptionsAdmin(callback) {
   try {
@@ -300,6 +315,7 @@ export function listenToRedemptionsAdmin(callback) {
       collection(db, 'voucherRedemptions'),
       (snap) => {
         if (snap.empty) {
+          // Koleksi kosong di Firestore: tampilkan seed data lokal untuk demo/dev
           callback(localRedemptions)
         } else {
           const list = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
