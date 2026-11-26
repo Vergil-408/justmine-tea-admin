@@ -62,7 +62,11 @@ export async function updateOrderDetails(orderId, updates) {
 
 /** Kasir menandai pesanan "Bayar di Kasir" sudah dibayar. (Pembayaran QRIS ditandai otomatis oleh server.) */
 export async function markOrderPaid(orderId, userId = null, orderTotal = 0, orderCode = '') {
-  await updateDoc(doc(db, 'orders', orderId), { paymentStatus: 'dibayar', paidAt: serverTimestamp() })
+  await updateDoc(doc(db, 'orders', orderId), {
+    paymentStatus: 'dibayar',
+    status: 'diproses',
+    paidAt: serverTimestamp(),
+  })
   if (userId && orderTotal > 0) {
     await addMemberPoints(userId, orderTotal).catch(() => {})
   }

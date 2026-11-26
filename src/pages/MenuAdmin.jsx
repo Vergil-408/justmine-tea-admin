@@ -20,9 +20,12 @@ const emptyForm = {
   category: 'Minuman',
   subcategory: '',
   price: '',
-  stock: '',
   tag: '',
   inStock: true,
+  allowSugar: true,
+  allowIce: true,
+  allowTopping: true,
+  allowNote: true,
   imageUrl: null,
 }
 
@@ -165,6 +168,8 @@ export default function MenuAdmin() {
   function startEdit(item) {
     setEditingId(item.id)
     const resolvedType = item.itemType || (isFoodCategory(item) ? 'food' : 'drink')
+    const hasExplicitGroups = Array.isArray(item.optionGroupIds) && item.optionGroupIds.length > 0
+    const isCustomDisabled = item.customizable === false
     setForm({
       name: item.name || '',
       desc: item.desc || '',
@@ -172,9 +177,12 @@ export default function MenuAdmin() {
       category: item.category || (resolvedType === 'food' ? 'Makanan' : 'Minuman'),
       subcategory: item.subcategory || '',
       price: getBasePrice(item),
-      stock: item.stock ?? '',
       tag: item.tag || '',
       inStock: item.inStock !== false,
+      allowSugar: isCustomDisabled ? false : hasExplicitGroups ? item.optionGroupIds.includes('gula') : resolvedType === 'drink',
+      allowIce: isCustomDisabled ? false : hasExplicitGroups ? item.optionGroupIds.includes('es') : resolvedType === 'drink',
+      allowTopping: isCustomDisabled ? false : hasExplicitGroups ? item.optionGroupIds.includes('topping') : resolvedType === 'drink',
+      allowNote: isCustomDisabled ? false : hasExplicitGroups ? item.optionGroupIds.includes('catatan') : true,
       imageUrl: item.imageUrl ?? null,
     })
     setImageChanged(false)
@@ -192,11 +200,15 @@ export default function MenuAdmin() {
       alert('Harga hanya boleh berisi angka, tidak boleh mengandung huruf.')
       return
     }
-    if (form.stock !== '' && form.stock !== null && form.stock !== undefined && /[a-zA-Z]/.test(String(form.stock).trim())) {
-      alert('Stok hanya boleh berisi angka, tidak boleh mengandung huruf.')
-      return
-    }
     setSaving(true)
+    const optionGroupIds = []
+    if (form.itemType === 'drink') {
+      if (form.allowSugar) optionGroupIds.push('gula')
+      if (form.allowIce) optionGroupIds.push('es')
+      if (form.allowTopping) optionGroupIds.push('topping')
+    }
+    if (form.allowNote) optionGroupIds.push('catatan')
+
     const base = {
       name: form.name.trim(),
       desc: form.desc.trim(),
@@ -206,14 +218,16 @@ export default function MenuAdmin() {
       inStock: form.inStock,
       tag: form.tag.trim() || null,
       price: Number(form.price),
-      stock: form.stock !== '' ? Number(form.stock) : null,
+      stock: null,
       basePrice: null,
+      customizable: optionGroupIds.length > 0,
+      optionGroupIds,
     }
     try {
       if (editingId) {
         await updateMenuItem(editingId, imageChanged ? { ...base, imageUrl: form.imageUrl } : base)
       } else {
-        await addMenuItem({ ...base, imageUrl: form.imageUrl, customizable: false, optionGroupIds: [] })
+        await addMenuItem({ ...base, imageUrl: form.imageUrl })
       }
       resetForm()
     } catch (err) {
@@ -455,42 +469,99 @@ export default function MenuAdmin() {
                 </div>
               </div>
 
-              {/* Grid 2 Kolom: Harga & Stok */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                    Harga <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">Stok (Opsional)</label>
+              {/* Harga */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Harga <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">Rp</span>
                   <input
                     type="number"
                     min="0"
-                    value={form.stock ?? ''}
-                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
-                    placeholder="Contoh: 100"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#124734] focus:ring-1 focus:ring-[#124734]/20 transition-all"
+                    placeholder="0"
+                    required
                   />
                 </div>
               </div>
 
-              {/* Status Menu Toggle */}
+              {/* Opsi Kustomisasi Menu */}
+              <div className="p-3.5 rounded-2xl bg-[#FBFDFB] border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">Opsi Kustomisasi</span>
+                  {form.itemType === 'drink' && (
+                    <Link
+                      to="/kustom"
+                      className="text-[11px] font-bold text-[#124734] hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Atur Topping</span>
+                      <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                    </Link>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {form.itemType === 'drink' && (
+                    <>
+                      <label className="flex items-center justify-between gap-2 cursor-pointer text-xs text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-[#124734]">water_drop</span>
+                          <span>Kustom Level Gula</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={form.allowSugar}
+                          onChange={(e) => setForm((f) => ({ ...f, allowSugar: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-[#124734] cursor-pointer"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 cursor-pointer text-xs text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-[#124734]">ac_unit</span>
+                          <span>Kustom Level Es</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={form.allowIce}
+                          onChange={(e) => setForm((f) => ({ ...f, allowIce: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-[#124734] cursor-pointer"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 cursor-pointer text-xs text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-[#124734]">bubble_chart</span>
+                          <span>Bisa Tambah Topping</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={form.allowTopping}
+                          onChange={(e) => setForm((f) => ({ ...f, allowTopping: e.target.checked }))}
+                          className="w-4 h-4 rounded accent-[#124734] cursor-pointer"
+                        />
+                      </label>
+                    </>
+                  )}
+                  <label className="flex items-center justify-between gap-2 cursor-pointer text-xs text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-[#124734]">edit_note</span>
+                      <span>Catatan untuk Barista</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={form.allowNote}
+                      onChange={(e) => setForm((f) => ({ ...f, allowNote: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-[#124734] cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Ketersediaan Menu Toggle (Ready / Habis) */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">Status Menu</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">Ketersediaan Menu</label>
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
@@ -498,7 +569,7 @@ export default function MenuAdmin() {
                     aria-checked={form.inStock}
                     onClick={() => setForm((f) => ({ ...f, inStock: !f.inStock }))}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      form.inStock ? 'bg-[#124734]' : 'bg-slate-300'
+                      form.inStock ? 'bg-[#124734]' : 'bg-red-500'
                     }`}
                   >
                     <span
@@ -507,8 +578,8 @@ export default function MenuAdmin() {
                       }`}
                     />
                   </button>
-                  <span className="text-xs font-semibold text-slate-800">
-                    {form.inStock ? 'Menu Aktif' : 'Menu Nonaktif'}
+                  <span className={`text-xs font-bold ${form.inStock ? 'text-[#124734]' : 'text-red-600'}`}>
+                    {form.inStock ? 'Tersedia (Ready)' : 'Habis (Sold Out)'}
                   </span>
                 </div>
               </div>
@@ -647,15 +718,14 @@ export default function MenuAdmin() {
                       <th className="py-3 px-2">Menu</th>
                       <th className="py-3 px-2">Kategori</th>
                       <th className="py-3 px-2">Harga</th>
-                      <th className="py-3 px-2">Stok</th>
-                      <th className="py-3 px-2">Status</th>
+                      <th className="py-3 px-2">Ketersediaan</th>
                       <th className="py-3 px-2 text-center">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
                     {loading && (
                       <tr>
-                        <td colSpan="6" className="py-12 text-center text-slate-400">
+                        <td colSpan="5" className="py-12 text-center text-slate-400">
                           <span className="material-symbols-outlined text-3xl animate-spin">progress_activity</span>
                           <p className="mt-2 text-xs">Memuat menu...</p>
                         </td>
@@ -664,7 +734,7 @@ export default function MenuAdmin() {
 
                     {!loading && paginatedItems.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="py-12 text-center text-slate-400">
+                        <td colSpan="5" className="py-12 text-center text-slate-400">
                           <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
                           <p className="mt-2 font-bold text-slate-600">Tidak ada menu yang sesuai</p>
                           <p className="text-xs text-slate-400 mt-0.5">Coba ubah kata kunci pencarian atau filter.</p>
@@ -710,22 +780,17 @@ export default function MenuAdmin() {
                             {rupiah(getBasePrice(item))}
                           </td>
 
-                          {/* Kolom Stok */}
-                          <td className="py-3 px-2 text-slate-600 font-medium whitespace-nowrap">
-                            {item.stock !== null && item.stock !== undefined && item.stock !== '' ? item.stock : 100}
-                          </td>
-
-                          {/* Kolom Status (Aktif hijau / Draft biru) */}
+                          {/* Kolom Status (Tersedia hijau / Habis merah) */}
                           <td className="py-3 px-2 whitespace-nowrap">
                             {item.inStock !== false ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#EAF8F0] text-emerald-700 border border-emerald-200/50">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                <span>Aktif</span>
+                                <span>Tersedia</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/50">
-                                <span className="material-symbols-outlined text-[12px]">edit_note</span>
-                                <span>Draft</span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200/50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                <span>Habis</span>
                               </span>
                             )}
                           </td>
@@ -761,9 +826,9 @@ export default function MenuAdmin() {
                                     className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                   >
                                     <span className="material-symbols-outlined text-[15px]">
-                                      {item.inStock !== false ? 'visibility_off' : 'visibility'}
+                                      {item.inStock !== false ? 'block' : 'check_circle'}
                                     </span>
-                                    <span>{item.inStock !== false ? 'Jadikan Draft' : 'Aktifkan'}</span>
+                                    <span>{item.inStock !== false ? 'Tandai Habis' : 'Tandai Tersedia'}</span>
                                   </button>
                                   <button
                                     onClick={() => removeItem(item)}

@@ -92,8 +92,8 @@ export default function TopNav() {
             onClick={() => setMobileOpen(false)}
             className={navLinkClass}
           >
-            <span className="material-symbols-outlined text-[20px]">tune</span>
-            <span>Kustom Menu</span>
+            <span className="material-symbols-outlined text-[20px]">bubble_chart</span>
+            <span>Kelola Topping</span>
           </NavLink>
           <NavLink
             to="/meja"

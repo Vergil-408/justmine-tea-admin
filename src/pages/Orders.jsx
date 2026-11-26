@@ -15,6 +15,12 @@ const TABS = [
 ]
 
 const STATUS_CONFIG = {
+  menunggu_pembayaran: {
+    label: 'Menunggu Bayar',
+    dotClass: 'bg-amber-500',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    borderClass: 'border-amber-300',
+  },
   menunggu: {
     label: 'Aktif',
     dotClass: 'bg-emerald-500',
@@ -79,6 +85,12 @@ function timeAgo(ts) {
   return `${diffHours} jam lalu`
 }
 
+// Helper: periksa apakah pesanan adalah QRIS yang belum lunas
+export const isUnpaidQris = (o) => {
+  const method = String(o?.paymentMethod || '').toLowerCase()
+  return (method === 'qris' || method.includes('qris')) && o?.paymentStatus !== 'dibayar'
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -137,11 +149,12 @@ export default function Orders() {
       const t = parseOrderTime(o)
       const isToday = t >= todayStart
 
-      if (o.status === 'menunggu' || o.status === 'diproses') {
+      // Hanya pesanan valid (bukan QRIS yang belum lunas) yang masuk antrean aktif
+      if (!isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')) {
         activeQueueCount += 1
       }
 
-      if (isToday && o.status !== 'dibatalkan') {
+      if (isToday && o.status !== 'dibatalkan' && !isUnpaidQris(o)) {
         countToday += 1
         if (o.paymentStatus === 'dibayar') {
           revenueToday += (o.total ?? o.subtotal ?? 0)
@@ -161,11 +174,13 @@ export default function Orders() {
 
   // Hitungan tab
   const counts = useMemo(() => {
-    const c = { menunggu: 0, diproses: 0, siap: 0, selesai: 0, dibatalkan: 0 }
+    const c = { menunggu_pembayaran: 0, menunggu: 0, diproses: 0, siap: 0, selesai: 0, dibatalkan: 0 }
     orders.forEach((o) => {
       if (c[o.status] !== undefined) c[o.status] += 1
     })
-    return { ...c, aktif: c.diproses + c.menunggu }
+    // Tab aktif: hanya pesanan yang valid (bukan QRIS belum bayar)
+    const activeCount = orders.filter((o) => !isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')).length
+    return { ...c, aktif: activeCount }
   }, [orders])
 
   const isQueueTab = activeTab === 'aktif' || activeTab === 'diproses'
@@ -173,9 +188,17 @@ export default function Orders() {
   // Filter daftar pesanan
   const filtered = useMemo(() => {
     let list = []
-    if (activeTab === 'semua') list = orders
-    else if (activeTab === 'aktif') list = orders.filter((o) => o.status === 'menunggu' || o.status === 'diproses')
-    else list = orders.filter((o) => o.status === activeTab)
+    if (activeTab === 'semua') {
+      list = orders
+    } else if (activeTab === 'aktif') {
+      list = orders.filter((o) => !isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses'))
+    } else if (activeTab === 'diproses') {
+      list = orders.filter((o) => !isUnpaidQris(o) && o.status === 'diproses')
+    } else if (activeTab === 'menunggu') {
+      list = orders.filter((o) => !isUnpaidQris(o) && o.status === 'menunggu')
+    } else {
+      list = orders.filter((o) => o.status === activeTab)
+    }
 
     // Filter tanggal jika dipilih hari ini
     if (dateFilter === 'today') {
@@ -185,7 +208,7 @@ export default function Orders() {
       list = list.filter((o) => {
         const t = parseOrderTime(o)
         // Jika antrean masih aktif, tetap tampilkan meski dari hari sebelumnya
-        if (o.status === 'menunggu' || o.status === 'diproses') return true
+        if (!isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')) return true
         return t >= todayStart
       })
     }
@@ -876,7 +899,7 @@ function OrderDetailModal({
 
         {/* Footer Tombol Aksi Modal */}
         <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-2 justify-end">
-          {order.paymentMethod === 'Bayar di Kasir' && order.paymentStatus === 'belum_dibayar' && (
+          {order.paymentStatus === 'belum_dibayar' && (
             <button
               onClick={onMarkPaid}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5"
