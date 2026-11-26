@@ -172,16 +172,30 @@ export default function Orders() {
     }
   }, [orders])
 
-  // Hitungan tab
+  // Pesanan sesuai filter tanggal (Hari Ini vs Semua)
+  const dateScopedOrders = useMemo(() => {
+    if (dateFilter !== 'today') return orders
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStart = today.getTime()
+    return orders.filter((o) => {
+      const t = parseOrderTime(o)
+      // Jika antrean masih aktif, tetap tampilkan meski dari hari sebelumnya
+      if (!isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')) return true
+      return t >= todayStart
+    })
+  }, [orders, dateFilter])
+
+  // Hitungan tab (sinkron dengan filter tanggal yang aktif)
   const counts = useMemo(() => {
     const c = { menunggu_pembayaran: 0, menunggu: 0, diproses: 0, siap: 0, selesai: 0, dibatalkan: 0 }
-    orders.forEach((o) => {
+    dateScopedOrders.forEach((o) => {
       if (c[o.status] !== undefined) c[o.status] += 1
     })
     // Tab aktif: hanya pesanan yang valid (bukan QRIS belum bayar)
-    const activeCount = orders.filter((o) => !isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')).length
-    return { ...c, aktif: activeCount }
-  }, [orders])
+    const activeCount = dateScopedOrders.filter((o) => !isUnpaidQris(o) && (o.status === 'menunggu' || o.status === 'diproses')).length
+    return { ...c, aktif: activeCount, semua: dateScopedOrders.length }
+  }, [dateScopedOrders])
 
   const isQueueTab = activeTab === 'aktif' || activeTab === 'diproses'
 
@@ -450,7 +464,7 @@ export default function Orders() {
           {TABS.map((t) => {
             const countValue =
               t.key === 'semua'
-                ? orders.length
+                ? counts.semua
                 : t.key === 'aktif'
                 ? counts.aktif
                 : counts[t.key] ?? 0
