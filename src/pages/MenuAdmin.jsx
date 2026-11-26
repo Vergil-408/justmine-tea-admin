@@ -749,8 +749,9 @@ export default function MenuAdmin() {
                       </tr>
                     )}
 
-                    {!loading && paginatedItems.map((item) => {
+                    {!loading && paginatedItems.map((item, idx) => {
                       const isFood = isFoodCategory(item)
+                      const openUpward = paginatedItems.length >= 2 && idx >= paginatedItems.length - 2
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                           {/* Kolom Menu (Foto + Nama + Deskripsi) */}
@@ -832,7 +833,7 @@ export default function MenuAdmin() {
                               {activeMenuActionId === item.id && (
                                 <div
                                   onClick={(e) => e.stopPropagation()}
-                                  className="absolute right-0 top-10 z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left"
+                                  className={`absolute right-0 ${openUpward ? 'bottom-10' : 'top-10'} z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left`}
                                 >
                                   <button
                                     type="button"
