@@ -97,6 +97,13 @@ export default function MenuAdmin() {
     return unsub
   }, [])
 
+  useEffect(() => {
+    if (!activeMenuActionId) return
+    const closeMenu = () => setActiveMenuActionId(null)
+    document.addEventListener('click', closeMenu)
+    return () => document.removeEventListener('click', closeMenu)
+  }, [activeMenuActionId])
+
   // Pisahkan hitungan drink vs food
   const drinkCount = useMemo(() => items.filter((i) => !isFoodCategory(i)).length, [items])
   const foodCount = useMemo(() => items.filter((i) => isFoodCategory(i)).length, [items])
@@ -811,7 +818,10 @@ export default function MenuAdmin() {
                               {/* Tombol More Titik Tiga */}
                               <button
                                 type="button"
-                                onClick={() => setActiveMenuActionId(activeMenuActionId === item.id ? null : item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setActiveMenuActionId(activeMenuActionId === item.id ? null : item.id)
+                                }}
                                 title="Menu Opsi"
                                 className="w-8 h-8 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
                               >
@@ -820,8 +830,12 @@ export default function MenuAdmin() {
 
                               {/* Popover Menu Aksi */}
                               {activeMenuActionId === item.id && (
-                                <div className="absolute right-0 top-10 z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left">
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 top-10 z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left"
+                                >
                                   <button
+                                    type="button"
                                     onClick={() => toggleStock(item)}
                                     className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                   >
@@ -831,7 +845,11 @@ export default function MenuAdmin() {
                                     <span>{item.inStock !== false ? 'Tandai Habis' : 'Tandai Tersedia'}</span>
                                   </button>
                                   <button
-                                    onClick={() => removeItem(item)}
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuActionId(null)
+                                      removeItem(item)
+                                    }}
                                     className="w-full px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
                                   >
                                     <span className="material-symbols-outlined text-[15px]">delete</span>
