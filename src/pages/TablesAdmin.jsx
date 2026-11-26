@@ -62,19 +62,28 @@ export default function TablesAdmin() {
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
   const [newTableNum, setNewTableNum] = useState('')
-  const [newCapacity, setNewCapacity] = useState(4)
   const [busyId, setBusyId] = useState(null)
+  const [loadError, setLoadError] = useState('')
   // Token asli hanya disimpan sementara di memori browser admin untuk render/download QR
   const [plainTokens, setPlainTokens] = useState({})
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'tables'), (snap) => {
-      const list = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => String(a.tableNumber || a.id).localeCompare(String(b.tableNumber || b.id), undefined, { numeric: true }))
-      setTables(list)
-      setLoading(false)
-    })
+    const unsub = onSnapshot(
+      collection(db, 'tables'),
+      (snap) => {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => String(a.tableNumber || a.id).localeCompare(String(b.tableNumber || b.id), undefined, { numeric: true }))
+        setTables(list)
+        setLoadError('')
+        setLoading(false)
+      },
+      (err) => {
+        console.error('Gagal memuat daftar meja:', err)
+        setLoadError(err.message || 'Gagal membaca koleksi meja dari Firestore.')
+        setLoading(false)
+      }
+    )
     return unsub
   }, [])
 
@@ -99,7 +108,6 @@ export default function TablesAdmin() {
       const tokenHash = await hashTokenSha256(token)
       await setDoc(doc(db, 'tables', clean), {
         tableNumber: clean,
-        capacity: Math.max(1, Number(newCapacity) || 4),
         tokenHash,
         tokenStatus: 'active',
         createdAt: serverTimestamp(),
@@ -205,7 +213,7 @@ export default function TablesAdmin() {
             </div>
 
             <form onSubmit={handleAddTable} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-wrap sm:flex-nowrap items-end gap-3">
-              <div className="flex-1 min-w-[120px]">
+              <div className="flex-1 min-w-[140px]">
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">Nomor Meja</label>
                 <input
                   value={newTableNum}
@@ -216,21 +224,10 @@ export default function TablesAdmin() {
                   required
                 />
               </div>
-              <div className="w-28">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">Kapasitas</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={newCapacity}
-                  onChange={(e) => setNewCapacity(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
               <button
                 type="submit"
                 disabled={busyId !== null}
-                className="bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs px-4 py-3 rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="bg-[#124734] hover:bg-[#0c3124] text-white font-bold text-xs px-5 py-3 rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 <span>Tambah Meja</span>
@@ -240,7 +237,11 @@ export default function TablesAdmin() {
         </div>
 
         {/* Daftar Meja & QR */}
-        {loading ? (
+        {loadError ? (
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-xs text-red-700 font-semibold">
+            Error memuat meja: {loadError}
+          </div>
+        ) : loading ? (
           <div className="py-12 text-center text-slate-400 text-sm">Memuat daftar meja...</div>
         ) : tables.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl px-4 py-12 text-center bg-white">
@@ -263,7 +264,6 @@ export default function TablesAdmin() {
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div>
                         <p className="text-lg font-extrabold text-slate-900">Meja {t.tableNumber || t.id}</p>
-                        <p className="text-xs text-slate-500">Kapasitas {t.capacity || 4} orang</p>
                       </div>
                       <span
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold print:hidden ${
