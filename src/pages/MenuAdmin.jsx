@@ -86,7 +86,7 @@ export default function MenuAdmin() {
   const [filterType, setFilterType] = useState('all') // 'all' | 'drink' | 'food'
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [activeMenuActionId, setActiveMenuActionId] = useState(null)
+  const [activeMenuAction, setActiveMenuAction] = useState(null)
   const pageSize = 6
 
   useEffect(() => {
@@ -98,11 +98,15 @@ export default function MenuAdmin() {
   }, [])
 
   useEffect(() => {
-    if (!activeMenuActionId) return
-    const closeMenu = () => setActiveMenuActionId(null)
+    if (!activeMenuAction) return
+    const closeMenu = () => setActiveMenuAction(null)
     document.addEventListener('click', closeMenu)
-    return () => document.removeEventListener('click', closeMenu)
-  }, [activeMenuActionId])
+    window.addEventListener('scroll', closeMenu, true)
+    return () => {
+      document.removeEventListener('click', closeMenu)
+      window.removeEventListener('scroll', closeMenu, true)
+    }
+  }, [activeMenuAction])
 
   // Pisahkan hitungan drink vs food
   const drinkCount = useMemo(() => items.filter((i) => !isFoodCategory(i)).length, [items])
@@ -247,7 +251,7 @@ export default function MenuAdmin() {
   async function toggleStock(item) {
     try {
       await updateMenuItem(item.id, { inStock: !item.inStock })
-      setActiveMenuActionId(null)
+      setActiveMenuAction(null)
     } catch (err) {
       alert('Gagal mengubah stok: ' + err.message)
     }
@@ -257,7 +261,7 @@ export default function MenuAdmin() {
     if (!confirm(`Hapus menu "${item.name}"?`)) return
     try {
       await deleteMenuItem(item.id)
-      setActiveMenuActionId(null)
+      setActiveMenuAction(null)
     } catch (err) {
       alert('Gagal menghapus: ' + err.message)
     }
@@ -749,9 +753,8 @@ export default function MenuAdmin() {
                       </tr>
                     )}
 
-                    {!loading && paginatedItems.map((item, idx) => {
+                    {!loading && paginatedItems.map((item) => {
                       const isFood = isFoodCategory(item)
-                      const openUpward = paginatedItems.length >= 2 && idx >= paginatedItems.length - 2
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                           {/* Kolom Menu (Foto + Nama + Deskripsi) */}
@@ -821,43 +824,25 @@ export default function MenuAdmin() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  setActiveMenuActionId(activeMenuActionId === item.id ? null : item.id)
+                                  if (activeMenuAction?.item?.id === item.id) {
+                                    setActiveMenuAction(null)
+                                    return
+                                  }
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  const openUpward = rect.bottom + 100 > window.innerHeight
+                                  setActiveMenuAction({
+                                    item,
+                                    right: Math.max(12, window.innerWidth - rect.right),
+                                    top: rect.bottom + 6,
+                                    bottom: window.innerHeight - rect.top + 6,
+                                    openUpward,
+                                  })
                                 }}
                                 title="Menu Opsi"
                                 className="w-8 h-8 rounded-full border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
                               >
                                 <span className="material-symbols-outlined text-[16px]">more_vert</span>
                               </button>
-
-                              {/* Popover Menu Aksi */}
-                              {activeMenuActionId === item.id && (
-                                <div
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`absolute right-0 ${openUpward ? 'bottom-10' : 'top-10'} z-30 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStock(item)}
-                                    className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">
-                                      {item.inStock !== false ? 'block' : 'check_circle'}
-                                    </span>
-                                    <span>{item.inStock !== false ? 'Tandai Habis' : 'Tandai Tersedia'}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuActionId(null)
-                                      removeItem(item)
-                                    }}
-                                    className="w-full px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">delete</span>
-                                    <span>Hapus Menu</span>
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -917,6 +902,43 @@ export default function MenuAdmin() {
           </div>
         </div>
       </main>
+
+      {/* Popover Menu Aksi (Fixed agar tidak terpotong overflow tabel) */}
+      {activeMenuAction && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            right: `${activeMenuAction.right}px`,
+            ...(activeMenuAction.openUpward
+              ? { bottom: `${activeMenuAction.bottom}px` }
+              : { top: `${activeMenuAction.top}px` }),
+          }}
+          className="fixed z-50 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 text-left"
+        >
+          <button
+            type="button"
+            onClick={() => toggleStock(activeMenuAction.item)}
+            className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[15px]">
+              {activeMenuAction.item.inStock !== false ? 'block' : 'check_circle'}
+            </span>
+            <span>{activeMenuAction.item.inStock !== false ? 'Tandai Habis' : 'Tandai Tersedia'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const target = activeMenuAction.item
+              setActiveMenuAction(null)
+              removeItem(target)
+            }}
+            className="w-full px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[15px]">delete</span>
+            <span>Hapus Menu</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
