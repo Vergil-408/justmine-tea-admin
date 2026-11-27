@@ -84,7 +84,7 @@ export default function PosAdmin() {
   const [tableNumber, setTableNumber] = useState('1')
 
   // --- Pembayaran ---
-  const [paymentMethod, setPaymentMethod] = useState('cash') // 'cash' | 'qris' | 'debit'
+  const [paymentMethod, setPaymentMethod] = useState('cash') // 'cash' | 'qris'
   const [cashTendered, setCashTendered] = useState('')
 
   // --- Modal Kustomisasi Menu ---
@@ -418,7 +418,6 @@ export default function PosAdmin() {
     const paymentLabel = {
       cash: 'Tunai (Kasir)',
       qris: 'QRIS (Kasir)',
-      debit: 'Debit / EDC',
     }[paymentMethod]
 
     const orderData = {
@@ -977,11 +976,10 @@ export default function PosAdmin() {
               <span className="text-xs font-bold text-slate-900">Pilih Metode Pembayaran:</span>
 
               {/* Tabs Metode Bayar */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { key: 'cash', label: 'Tunai (Cash)', icon: 'payments' },
                   { key: 'qris', label: 'QRIS Kasir', icon: 'qr_code_scanner' },
-                  { key: 'debit', label: 'Debit / EDC', icon: 'credit_card' },
                 ].map((m) => (
                   <button
                     key={m.key}
@@ -1058,13 +1056,6 @@ export default function PosAdmin() {
                 <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center gap-2">
                   <span className="material-symbols-outlined text-[20px] text-blue-600 shrink-0">info</span>
                   <span>Arahkan pelanggan scan kode QRIS statis / EDC di meja kasir.</span>
-                </div>
-              )}
-
-              {paymentMethod === 'debit' && (
-                <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[20px] text-purple-600 shrink-0">credit_card</span>
-                  <span>Proses pembayaran melalui mesin EDC bank di meja kasir.</span>
                 </div>
               )}
 
