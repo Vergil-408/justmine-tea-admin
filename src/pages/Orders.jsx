@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listenToAllOrders, updateOrderStatus, deleteOrder, markOrderPaid, updateOrderDetails } from '../api/orders.js'
+import { listenToAllOrders, updateOrderStatus, deleteOrder, markOrderPaid, updateOrderDetails, sendCustomerPush } from '../api/orders.js'
 import TopNav from '../components/TopNav.jsx'
 import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import { useOrderAlerts, loadSoundPref, saveSoundPref } from '../hooks/useOrderAlerts.js'
@@ -271,11 +271,7 @@ export default function Orders() {
         cancelledReason: reason.trim() || 'Dibatalkan oleh kasir',
       })
       // Kirim push untuk pembatalan
-      fetch('/api/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, status: 'dibatalkan', orderCode: order.orderCode, userId: order.userId }),
-      }).catch(() => {})
+      sendCustomerPush({ orderId: order.id, status: 'dibatalkan', orderCode: order.orderCode, userId: order.userId })
     } catch (err) {
       window.alert('Gagal membatalkan: ' + err.message)
     }

@@ -13,7 +13,29 @@ import {
   setDoc,
   increment,
 } from 'firebase/firestore'
-import { db } from './firebase.js'
+import { db, auth } from './firebase.js'
+
+const CUSTOMER_API_URL = (import.meta.env.VITE_CUSTOMER_API_URL || 'https://justmine-tea-customer.vercel.app').replace(/\/$/, '')
+
+export async function sendCustomerPush({ orderId, status, orderCode = null, userId = null }) {
+  try {
+    const idToken = await auth.currentUser?.getIdToken()
+    if (!idToken) return
+    const res = await fetch(`${CUSTOMER_API_URL}/api/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ orderId, status, orderCode, userId }),
+    })
+    if (!res.ok) {
+      console.warn('[Push] Gagal mengirim push notification:', res.status)
+    }
+  } catch (err) {
+    console.warn('[Push] Error saat memanggil send-push:', err?.message || err)
+  }
+}
 
 /**
  * Dengarkan SEMUA pesanan (lintas user & tamu) secara real-time, terbaru di atas.
@@ -38,18 +60,12 @@ export function listenToAllOrders(callback) {
 export async function updateOrderStatus(orderId, newStatus, meta = {}) {
   await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
 
-  // Kirim push notification di background (fire-and-forget, tidak blok UI admin)
-  fetch('/api/send-push', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      orderId,
-      status: newStatus,
-      orderCode: meta.orderCode || null,
-      userId: meta.userId || null,
-    }),
-  }).catch(() => {
-    // Gagal push → tidak masalah, Firestore onSnapshot di customer app tetap berjalan
+  // Kirim push notification di background ke API Customer (fire-and-forget, tidak blok UI admin)
+  sendCustomerPush({
+    orderId,
+    status: newStatus,
+    orderCode: meta.orderCode || null,
+    userId: meta.userId || null,
   })
 }
 
@@ -70,6 +86,12 @@ export async function markOrderPaid(orderId, userId = null, orderTotal = 0, orde
   if (userId && orderTotal > 0) {
     await addMemberPoints(userId, orderTotal).catch(() => {})
   }
+  sendCustomerPush({
+    orderId,
+    status: 'diproses',
+    orderCode: orderCode || null,
+    userId: userId || null,
+  })
 }
 
 /** Hapus 1 pesanan permanen (hanya owner; dipakai hati-hati, misal data uji coba). */
