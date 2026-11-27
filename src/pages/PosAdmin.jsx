@@ -1574,7 +1574,7 @@ export default function PosAdmin() {
             </div>
 
             {/* Area Pratinjau Struk Thermal (Identik Customer E-Receipt ala Fore Coffee) */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-neutral-100 flex justify-center">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-neutral-100 flex justify-center items-start">
               <div className="w-full max-w-[340px] bg-white border border-neutral-300 rounded-xl shadow-md p-4 font-mono text-neutral-900 leading-tight text-[11px]">
                 {/* Brand & Outlet Header */}
                 <div className="text-center pb-2">
